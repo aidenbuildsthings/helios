@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPOSITORY="aidenbuildsthings/helios"
-VERSION="${HELIOS_VERSION:-0.1.0}"
+VERSION="${HELIOS_VERSION:-0.1.1}"
 ARCHIVE_URL="https://github.com/$REPOSITORY/archive/refs/tags/v$VERSION.tar.gz"
 INSTALL_ROOT="${HELIOS_INSTALL_DIR:-$HOME/.local/share/helios}"
 BIN_DIR="${HELIOS_BIN_DIR:-$HOME/.local/bin}"
@@ -21,7 +21,7 @@ DOWNLOAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/helios-download.XXXXXX")"
 STAGING_DIR="$(mktemp -d "$INSTALL_ROOT/.install.XXXXXX")"
 trap 'rm -rf "$DOWNLOAD_DIR" "$STAGING_DIR"' EXIT
 
-echo "Downloading Helios v$VERSION…"
+echo "Downloading Helios v${VERSION}..."
 curl --fail --silent --show-error --location "$ARCHIVE_URL" --output "$DOWNLOAD_DIR/helios.tar.gz"
 tar -xzf "$DOWNLOAD_DIR/helios.tar.gz" -C "$DOWNLOAD_DIR"
 SOURCE_DIR="$DOWNLOAD_DIR/helios-$VERSION"
