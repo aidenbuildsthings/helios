@@ -3,7 +3,7 @@
 Install Helios with one command:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/aidenbuildsthings/helios/main/install.sh | bash
+curl -fsSL https://github.com/aidenbuildsthings/helios/releases/latest/download/install.sh | bash
 ```
 
 Then run `helios onboard`.
