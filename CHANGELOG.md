@@ -4,6 +4,13 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-05
+
+### Fixed
+
+- Windows CI now validates configuration persistence without applying unsupported Unix permission-bit assertions.
+- GitHub workflow actions use their current Node 24-compatible major versions.
+
 ## [0.2.0] - 2026-08-05
 
 ### Added
@@ -37,6 +44,7 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 - Built-in computer use, browser bridge, delegation, and learned capabilities.
 - Stable one-line installer served from the latest GitHub release.
 
-[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/aidenbuildsthings/helios/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/aidenbuildsthings/helios/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/aidenbuildsthings/helios/releases/tag/v0.1.1
