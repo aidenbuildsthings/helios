@@ -1,4 +1,5 @@
 import readline from "node:readline/promises";
+import { emitKeypressEvents } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { color, paint } from "./theme.mjs";
 
@@ -30,13 +31,73 @@ export class TerminalUI {
     return this.rl.question(`${paint(color.cyan, "└▶")} ${paint(color.bold, label)}  `);
   }
   async question(text) { return this.rl.question(text); }
+  async secret(text) {
+    if (!stdin.isTTY || typeof stdin.setRawMode !== "function") return this.question(text);
+    this.rl.pause(); emitKeypressEvents(stdin); stdin.setRawMode(true); stdout.write(text);
+    let value = "";
+    return new Promise((resolve, reject) => {
+      const finish = (error) => {
+        stdin.off("keypress", onKey); stdin.setRawMode(false); this.rl.resume(); stdout.write("\n");
+        if (error) reject(error); else resolve(value);
+      };
+      const onKey = (character, key = {}) => {
+        if (key.ctrl && key.name === "c") { finish(new Error("Cancelled.")); return; }
+        if (key.name === "return") { finish(); return; }
+        if (key.name === "backspace") { if (value) { value = value.slice(0, -1); stdout.write("\b \b"); } return; }
+        if (!key.ctrl && !key.meta && character && !/[\r\n]/.test(character)) { value += character; stdout.write("•"); }
+      };
+      stdin.on("keypress", onKey);
+    });
+  }
   async choose(title, options) {
+    if (stdin.isTTY && typeof stdin.setRawMode === "function") return this.pick(title, options, false);
     this.line(`\n${paint(color.bold, title)}`);
     options.forEach((option, index) => this.line(`  ${paint(color.cyan, String(index + 1))}  ${option}`));
     while (true) {
       const answer = Number(await this.question("\nChoose: ")) - 1;
       if (options[answer]) return answer;
     }
+  }
+  async checkbox(title, options, selected = []) {
+    if (stdin.isTTY && typeof stdin.setRawMode === "function") return this.pick(title, options, true, selected);
+    this.line(`\n${title}\n${options.map((item, index) => `  ${index + 1}  ${item}`).join("\n")}`);
+    const answer = (await this.question("Select comma-separated numbers (blank for none): ")).trim();
+    return answer ? answer.split(",").map((item) => Number(item.trim()) - 1).filter((index) => options[index]) : [];
+  }
+  async pick(title, options, multiple, selected = []) {
+    this.rl.pause();
+    emitKeypressEvents(stdin);
+    stdin.setRawMode(true);
+    let cursor = 0;
+    const chosen = new Set(selected);
+    const render = (first = false) => {
+      if (!first) stdout.write(`\x1b[${options.length}A`);
+      options.forEach((option, index) => {
+        const marker = multiple ? (chosen.has(index) ? "◉" : "○") : (index === cursor ? "◆" : " ");
+        const pointer = index === cursor ? paint(color.cyan, "›") : " ";
+        stdout.write(`\x1b[2K${pointer} ${marker} ${option}\n`);
+      });
+    };
+    this.line(`\n${paint(color.bold, title)}${multiple ? paint(color.dim, "  Space to select · Enter to continue") : ""}`);
+    render(true);
+    return new Promise((resolve, reject) => {
+      const finish = (value, error) => {
+        stdin.off("keypress", onKey);
+        stdin.setRawMode(false);
+        this.rl.resume();
+        if (error) reject(error); else resolve(value);
+      };
+      const onKey = (_text, key = {}) => {
+        if (key.ctrl && key.name === "c") { finish(null, new Error("Cancelled.")); return; }
+        if (key.name === "up") cursor = (cursor - 1 + options.length) % options.length;
+        else if (key.name === "down") cursor = (cursor + 1) % options.length;
+        else if (multiple && key.name === "space") chosen.has(cursor) ? chosen.delete(cursor) : chosen.add(cursor);
+        else if (key.name === "return") { finish(multiple ? [...chosen].sort((a, b) => a - b) : cursor); return; }
+        else return;
+        render();
+      };
+      stdin.on("keypress", onKey);
+    });
   }
   async approve(action) {
     const width = Math.min(76, Math.max(42, (stdout.columns || 80) - 4));

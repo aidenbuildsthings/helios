@@ -25,11 +25,21 @@ test("memory persists stable facts", async () => {
 test("Obsidian memory creates user-owned notes and daily logs", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "helios-home-"));
   const vault = await mkdtemp(path.join(os.tmpdir(), "helios-vault-"));
-  const config = { memory: { backend: "obsidian", obsidian: { vaultPath: vault, folder: "Helios", memoryNote: "Memory.md", instructionsNote: "Instructions.md", logsFolder: "Logs" } } };
+  const config = { memory: { backend: "obsidian", obsidian: { vaultPath: vault, folder: "Helios", memoryNote: "Memory.md", instructionsNote: "Instructions.md", logsFolder: "Logs" }, logs: { assistant: true } } };
   const store = await new Store({ HELIOS_HOME: home }, config).open();
   await store.remember("Use concise weekly reports.");
   await store.log("Helios", "Report completed.");
   assert.match(await readFile(path.join(vault, "Helios", "Memory.md"), "utf8"), /concise weekly reports/);
   assert.match(await readFile(path.join(vault, "Helios", "Logs", `${new Date().toISOString().slice(0, 10)}.md`), "utf8"), /Report completed/);
+  store.close();
+});
+
+test("persistent workers and cron jobs use the state database", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "helios-state-"));
+  const store = await new Store({ HELIOS_HOME: home }).open();
+  store.saveWorker({ id: "researcher", name: "Researcher", instructions: "Cite evidence." });
+  store.saveCronJob({ id: "daily", name: "Daily", expression: "0 9 * * *", prompt: "Prepare report", workerId: "researcher" });
+  assert.equal(store.worker("researcher").instructions, "Cite evidence.");
+  assert.equal(store.cronJobs()[0].worker_id, "researcher");
   store.close();
 });

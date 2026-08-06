@@ -13,6 +13,7 @@ export class Memory {
     this.memoryFile = obsidian ? path.join(this.root, obsidian.memoryNote || "Memory.md") : locations.memory;
     this.instructionsFile = path.join(this.root, obsidian?.instructionsNote || "Instructions.md");
     this.logs = obsidian ? path.join(this.root, obsidian.logsFolder || "Logs") : null;
+    this.logOptions = config.memory?.logs || { user: false, assistant: false, tools: true, errors: true };
   }
 
   async initialize() {
@@ -35,6 +36,8 @@ export class Memory {
 
   async log(role, text) {
     if (!this.logs || !text?.trim()) return;
+    const type = String(role).toLowerCase();
+    if ((type === "user" && !this.logOptions.user) || (type === "helios" && !this.logOptions.assistant) || (type === "tool" && !this.logOptions.tools) || (type === "error" && !this.logOptions.errors)) return;
     const day = new Date().toISOString().slice(0, 10);
     await appendFile(path.join(this.logs, `${day}.md`), `\n## ${new Date().toISOString()} · ${role}\n\n${text.trim()}\n`, { mode: 0o600 });
   }

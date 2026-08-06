@@ -1,0 +1,25 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build versioned archive and checksums
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          git archive --format=tar.gz --prefix="helios-$VERSION/" -o "helios-$VERSION.tar.gz" "$GITHUB_REF_NAME"
+          sha256sum install.sh "helios-$VERSION.tar.gz" > SHA256SUMS
+      - name: Extract version notes from changelog
+        run: awk -v version="${GITHUB_REF_NAME#v}" '$0 == "## [" version "]" || index($0, "## [" version "] -") == 1 {copy=1; next} copy && /^## \[/ {exit} copy {print}' CHANGELOG.md > RELEASE_NOTES.md
+      - name: Publish release assets and visible notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" install.sh "helios-${GITHUB_REF_NAME#v}.tar.gz" SHA256SUMS --verify-tag --notes-file RELEASE_NOTES.md --title "Helios $GITHUB_REF_NAME"

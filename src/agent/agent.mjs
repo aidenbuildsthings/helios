@@ -10,7 +10,7 @@ export class Agent {
   async initialize() {
     this.store.ensureSession(this.sessionId);
     this.messages = this.store.messages(this.sessionId);
-    this.system = buildSystemPrompt({ workspace: this.workspace, memory: await this.store.memory(), instructions: await this.store.instructions?.() || "", capabilities: await this.capabilityStore?.list?.() || [], learning: this.learning });
+    this.system = buildSystemPrompt({ workspace: this.workspace, memory: await this.store.memory(), instructions: await this.store.instructions?.() || "", capabilities: await this.capabilityStore?.list?.() || [], skills: this.store.skills?.() || [], workers: this.store.workers?.() || [], learning: this.learning });
     return this;
   }
 
@@ -44,6 +44,7 @@ export class Agent {
         let output;
         try { output = tool ? await tool.run(call.input, { signal }) : `Unknown tool: ${call.name}`; }
         catch (error) { output = `Tool failed: ${error.message}`; }
+        await this.store.log?.(String(output).startsWith("Tool failed:") ? "Error" : "Tool", `${call.name}\n\n${String(output).slice(0, 4000)}`);
         const toolMessage = { role: "tool", callId: call.id, content: String(output) };
         this.messages.push(toolMessage);
         this.store.append(this.sessionId, toolMessage);

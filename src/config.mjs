@@ -3,16 +3,21 @@ import path from "node:path";
 import { paths } from "./paths.mjs";
 
 export const DEFAULT_CONFIG = Object.freeze({
-  version: 1,
+  version: 2,
   provider: null,
   model: null,
   workspace: null,
   credentials: {},
   channels: {},
-  memory: { backend: "local", obsidian: null },
+  memory: { backend: "local", obsidian: null, logs: { user: false, assistant: false, tools: true, errors: true } },
   learning: { enabled: true },
+  updates: { enabled: true, intervalHours: 6 },
+  scheduler: { enabled: true },
+  skills: { enabled: false },
+  workers: { enabled: true },
+  computer: { enabled: true },
   browser: { port: 47821 },
-  autonomy: { mode: "autonomous" },
+  autonomy: { mode: "guarded" },
 });
 
 export async function readConfig(env = process.env) {
@@ -28,6 +33,11 @@ export async function readConfig(env = process.env) {
       learning: { ...DEFAULT_CONFIG.learning, ...parsed.learning },
       browser: { ...DEFAULT_CONFIG.browser, ...parsed.browser },
       autonomy: { ...DEFAULT_CONFIG.autonomy, ...parsed.autonomy },
+      updates: { ...DEFAULT_CONFIG.updates, ...parsed.updates },
+      scheduler: { ...DEFAULT_CONFIG.scheduler, ...parsed.scheduler },
+      skills: { ...DEFAULT_CONFIG.skills, ...parsed.skills },
+      workers: { ...DEFAULT_CONFIG.workers, ...parsed.workers },
+      computer: { ...DEFAULT_CONFIG.computer, ...parsed.computer },
     };
   } catch (error) {
     if (error?.code === "ENOENT") return structuredClone(DEFAULT_CONFIG);

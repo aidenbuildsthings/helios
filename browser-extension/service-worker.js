@@ -1,6 +1,11 @@
 let connectedTab = null;
+let bridgeToken = null;
 
 chrome.action.onClicked.addListener(async (tab) => {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  bridgeToken = [...bytes].map((value) => value.toString(16).padStart(2, "0")).join("");
+  const paired = await fetch("http://127.0.0.1:47821/pair", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: bridgeToken }) });
+  if (!paired.ok) throw new Error("Start `helios browser` before connecting a tab.");
   connectedTab = tab.id;
   await chrome.action.setBadgeText({ tabId: tab.id, text: "ON" });
   await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: "#00b8d9" });
@@ -34,11 +39,12 @@ async function execute(task) {
 
 async function poll() {
   try {
-    const task = await fetch("http://127.0.0.1:47821/next").then((response) => response.json());
+    if (!bridgeToken) throw new Error("Not paired.");
+    const task = await fetch("http://127.0.0.1:47821/next", { headers: { "x-helios-token": bridgeToken } }).then((response) => response.json());
     if (task) {
       let result;
       try { result = await execute(task); } catch (error) { result = { error: error.message }; }
-      await fetch("http://127.0.0.1:47821/result", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: task.id, ...result }) });
+      await fetch("http://127.0.0.1:47821/result", { method: "POST", headers: { "content-type": "application/json", "x-helios-token": bridgeToken }, body: JSON.stringify({ id: task.id, ...result }) });
     }
   } catch { /* Bridge is optional and local. */ }
   setTimeout(poll, 400);

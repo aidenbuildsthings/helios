@@ -8,9 +8,14 @@ curl -fsSL https://github.com/aidenbuildsthings/helios/releases/latest/download/
 
 Then run `helios onboard`.
 
+See [CHANGELOG.md](CHANGELOG.md) for every update and [SECURITY.md](SECURITY.md) for the threat model and hardened VPS guidance.
+
 Helios is a standalone, local-first business agent with a provider-neutral agent loop,
 durable sessions and memory, explicit approvals, subagent delegation, messaging adapters,
 optional Obsidian notes, self-improving playbooks, and opt-in browser control.
+
+Downloaded skills accept verified ClawHub skill cards or direct GitHub `SKILL.md` files.
+Helios stores only bounded instruction text and never installs bundled scripts or package hooks.
 
 ## Architecture
 
@@ -29,8 +34,9 @@ is reachable.
 
 ## Setup
 
-Run `helios onboard` to choose ChatGPT/Codex sign-in, an Anthropic or OpenAI API key,
-local or Obsidian memory, Telegram/Slack/Discord, autonomy, and self-improvement.
+Run `helios onboard` and use the arrow keys to choose ChatGPT/Codex sign-in, an
+Anthropic or OpenAI API key, Ollama Local, Ollama Cloud, local or Obsidian memory,
+Telegram/Slack/Discord, autonomy, scheduled jobs, workers, skills, and self-improvement.
 
 With Obsidian selected, Helios creates `Memory.md`, `Instructions.md`, and dated Markdown
 logs inside the chosen vault folder. These remain ordinary user-owned notes. Conversation
@@ -67,8 +73,8 @@ macOS requires Accessibility and Screen Recording access for the terminal runnin
 
 ## Autonomy
 
-Autonomous mode is the default. Ordinary workspace writes, program execution, and computer
-actions proceed without repeated prompts. Broad destructive commands, system-service
+Guarded mode is the default. Autonomous mode lets ordinary workspace writes, program execution,
+and computer actions proceed without repeated prompts. Broad destructive commands, system-service
 changes, package publishing, and capability creation still require explicit confirmation.
 
 ```sh

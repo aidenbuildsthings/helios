@@ -2,8 +2,10 @@
 set -euo pipefail
 
 REPOSITORY="aidenbuildsthings/helios"
-VERSION="${HELIOS_VERSION:-0.1.1}"
-ARCHIVE_URL="https://github.com/$REPOSITORY/archive/refs/tags/v$VERSION.tar.gz"
+VERSION="${HELIOS_VERSION:-0.2.0}"
+RELEASE_ROOT="https://github.com/$REPOSITORY/releases/download/v$VERSION"
+ARCHIVE_NAME="helios-$VERSION.tar.gz"
+ARCHIVE_URL="$RELEASE_ROOT/$ARCHIVE_NAME"
 INSTALL_ROOT="${HELIOS_INSTALL_DIR:-$HOME/.local/share/helios}"
 BIN_DIR="${HELIOS_BIN_DIR:-$HOME/.local/bin}"
 BIN_PATH="$BIN_DIR/helios"
@@ -23,6 +25,11 @@ trap 'rm -rf "$DOWNLOAD_DIR" "$STAGING_DIR"' EXIT
 
 echo "Downloading Helios v${VERSION}..."
 curl --fail --silent --show-error --location "$ARCHIVE_URL" --output "$DOWNLOAD_DIR/helios.tar.gz"
+curl --fail --silent --show-error --location "$RELEASE_ROOT/SHA256SUMS" --output "$DOWNLOAD_DIR/SHA256SUMS"
+EXPECTED_SHA="$(awk -v file="$ARCHIVE_NAME" '$2 == file {print $1}' "$DOWNLOAD_DIR/SHA256SUMS")"
+if [ -z "$EXPECTED_SHA" ]; then echo "Release checksum is missing for $ARCHIVE_NAME."; exit 1; fi
+if command -v sha256sum >/dev/null 2>&1; then ACTUAL_SHA="$(sha256sum "$DOWNLOAD_DIR/helios.tar.gz" | awk '{print $1}')"; else ACTUAL_SHA="$(shasum -a 256 "$DOWNLOAD_DIR/helios.tar.gz" | awk '{print $1}')"; fi
+if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then echo "Helios archive checksum verification failed."; exit 1; fi
 tar -xzf "$DOWNLOAD_DIR/helios.tar.gz" -C "$DOWNLOAD_DIR"
 SOURCE_DIR="$DOWNLOAD_DIR/helios-$VERSION"
 
