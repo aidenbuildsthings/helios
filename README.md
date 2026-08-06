@@ -8,6 +8,17 @@ curl -fsSL https://github.com/aidenbuildsthings/helios/releases/latest/download/
 
 Then run `helios onboard`.
 
+Keep the installation healthy with:
+
+```sh
+helios update   # install the latest checksum-verified release
+helios doctor   # diagnose configuration and runtime problems
+helios restart  # stop the foreground Helios process and run it again
+```
+
+`helios restart` manages Helios's foreground process. If a VPS supervisor such as systemd
+owns Helios, restart that service through the supervisor instead.
+
 See [CHANGELOG.md](CHANGELOG.md) for every update and [SECURITY.md](SECURITY.md) for the threat model and hardened VPS guidance.
 
 Helios is a standalone, local-first business agent with a provider-neutral agent loop,

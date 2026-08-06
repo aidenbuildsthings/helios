@@ -10,11 +10,14 @@ import { BrowserBridge } from "./browser/bridge.mjs";
 import { CapabilityStore } from "./capabilities/store.mjs";
 import { paths } from "./paths.mjs";
 import { computerTools } from "./tools/computer.mjs";
-import { checkForUpdate, startUpdateChecks } from "./updates.mjs";
+import { checkForUpdate, installLatestUpdate, startUpdateChecks } from "./updates.mjs";
 import { startScheduler, validateCron } from "./scheduler.mjs";
 import { downloadSkill } from "./skills.mjs";
 import { readSecret, writeSecret } from "./secrets.mjs";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { formatDoctor, runDoctor } from "./doctor.mjs";
+import { registerRuntime, restartHelios } from "./runtime.mjs";
 
 const ui = new TerminalUI();
 const [command = "chat", ...args] = process.argv.slice(2);
@@ -22,14 +25,19 @@ const [command = "chat", ...args] = process.argv.slice(2);
 async function chat() {
   const requestedSession = command === "--session" ? args[0] : args[0] === "--session" ? args[1] : null;
   const app = await createApp({ ui, sessionId: requestedSession });
-  const channels = await startChannels({ config: app.config, ui });
-  const updates = startUpdateChecks({ config: app.config, ui });
-  const scheduler = await startScheduler({ config: app.config, ui });
-  const banner = async () => ui.banner({ model: `${app.config.provider}/${app.config.model}`, session: app.sessionId.slice(0, 8), workspace: app.workspace, capabilities: (await app.capabilityStore.list()).length, autonomy: app.config.autonomy.mode });
-  await banner();
+  const runtime = await registerRuntime({ cliPath: fileURLToPath(import.meta.url) });
+  let channels; let updates; let scheduler;
+  let requestStop; const stop = new Promise((resolve) => { requestStop = resolve; });
+  const onTerminate = () => requestStop(null); process.once("SIGTERM", onTerminate);
   try {
+    channels = await startChannels({ config: app.config, ui });
+    updates = startUpdateChecks({ config: app.config, ui });
+    scheduler = await startScheduler({ config: app.config, ui });
+    const banner = async () => ui.banner({ model: `${app.config.provider}/${app.config.model}`, session: app.sessionId.slice(0, 8), workspace: app.workspace, capabilities: (await app.capabilityStore.list()).length, autonomy: app.config.autonomy.mode });
+    await banner();
     while (true) {
-      const input = (await ui.prompt()).trim();
+      const answer = await Promise.race([ui.prompt(), stop]); if (answer == null) break;
+      const input = answer.trim();
       if (!input) continue;
       if (["/exit", "/quit"].includes(input)) break;
       if (input === "/help") { ui.line("/help  /sessions  /capabilities  /autonomy  /clear  /exit\n"); continue; }
@@ -48,14 +56,22 @@ async function chat() {
       try { ui.assistant(await app.agent.send(input)); }
       catch (error) { ui.error(error.message); }
     }
-  } finally { channels?.stop(); updates?.stop(); scheduler?.stop(); app.store.close(); }
+  } finally { process.off("SIGTERM", onTerminate); channels?.stop(); updates?.stop(); scheduler?.stop(); app.store.close(); await runtime.release(); }
 }
 
 async function main() {
   if (["help", "-h", "--help"].includes(command)) {
-    ui.line("Helios — local business agent\n\n  helios                              Start a new conversation\n  helios --session <id>               Resume a conversation\n  helios onboard                      Configure Helios\n  helios sessions                     List conversations\n  helios capabilities                 Manage learned capabilities\n  helios skills                       Manage instruction-only skills\n  helios workers                      Manage persistent workers\n  helios cron                         Manage scheduled prompts\n  helios updates check                Check for updates without an LLM\n  helios autonomy [on|off|status]     Control autonomous execution\n  helios computer status              Check built-in computer control\n  helios status                       Show local configuration\n  helios channels status              Show channel connections\n  helios channels connect [name]      Connect Slack, Discord, or Telegram\n  helios browser                      Run the local browser bridge\n");
+    ui.line("Helios — local business agent\n\n  helios                              Start a new conversation\n  helios --session <id>               Resume a conversation\n  helios onboard                      Configure Helios\n  helios update                       Install the latest verified release\n  helios doctor                       Diagnose configuration and runtime errors\n  helios restart                      Stop the running Helios process and start it again\n  helios sessions                     List conversations\n  helios capabilities                 Manage learned capabilities\n  helios skills                       Manage instruction-only skills\n  helios workers                      Manage persistent workers\n  helios cron                         Manage scheduled prompts\n  helios updates check                Check for updates without an LLM\n  helios autonomy [on|off|status]     Control autonomous execution\n  helios computer status              Check built-in computer control\n  helios status                       Show local configuration\n  helios channels status              Show channel connections\n  helios channels connect [name]      Connect Slack, Discord, or Telegram\n  helios browser                      Run the local browser bridge\n");
   } else if (command === "onboard") await onboard(ui, await readConfig());
-  else if (command === "status") {
+  else if (command === "update") {
+    ui.line("Checking for a verified Helios release…");
+    const result = await installLatestUpdate();
+    ui.line(result.updated ? `\n✓ Updated Helios ${result.installed} → ${result.latest}.\nRun \`helios restart\` if another Helios process is still running.` : `Helios ${result.installed} is already current.`);
+  } else if (command === "doctor") {
+    ui.line("\nHELIOS DOCTOR\n"); const report = formatDoctor(await runDoctor()); ui.line(report.text); if (report.failures) process.exitCode = 1;
+  } else if (command === "restart") {
+    ui.line("Restarting Helios…\n"); ui.close(); const code = await restartHelios({ cliPath: fileURLToPath(import.meta.url) }); process.exitCode = code;
+  } else if (command === "status") {
     const config = await readConfig();
     ui.line(`Provider: ${config.provider || "not configured"}\nModel: ${config.model || "not configured"}\nWorkspace: ${config.workspace || "not configured"}\nAutonomy: ${config.autonomy.mode}`);
   } else if (command === "sessions") {

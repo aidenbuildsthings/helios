@@ -14,5 +14,6 @@ export function paths(env = process.env) {
     memory: path.join(home, "memory.md"),
     capabilities: path.join(home, "capabilities"),
     logs: path.join(home, "logs"),
+    runtime: path.join(home, "runtime.json"),
   };
 }

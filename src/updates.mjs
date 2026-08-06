@@ -1,4 +1,8 @@
-import { readFile } from "node:fs/promises";
+import crypto from "node:crypto";
+import { spawn } from "node:child_process";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 const RELEASE_API = "https://api.github.com/repos/aidenbuildsthings/helios/releases/latest";
 
@@ -19,6 +23,35 @@ export async function checkForUpdate(fetchImpl = fetch) {
   const release = await response.json(); const latest = String(release.tag_name || "").replace(/^v/, "");
   if (!/^\d+\.\d+\.\d+$/.test(latest)) throw new Error("GitHub returned an invalid Helios release version.");
   return { installed, latest, available: compareVersions(latest, installed) > 0, url: release.html_url };
+}
+
+async function boundedText(response, maxBytes = 1_000_000) {
+  if (!response.ok) throw new Error(`Download failed: ${response.status}.`);
+  const declared = Number(response.headers.get("content-length") || 0); if (declared > maxBytes) throw new Error("Update file exceeds its safety limit.");
+  const text = await response.text(); if (Buffer.byteLength(text) > maxBytes) throw new Error("Update file exceeds its safety limit."); return text;
+}
+
+export async function installLatestUpdate({ fetchImpl = fetch, spawnImpl = spawn, env = process.env, platform = process.platform } = {}) {
+  if (platform === "win32") throw new Error("Automatic update is not available on Windows yet. Download the latest release from GitHub.");
+  const status = await checkForUpdate(fetchImpl);
+  if (!status.available) return { ...status, updated: false };
+  const root = `https://github.com/aidenbuildsthings/helios/releases/download/v${status.latest}`;
+  const request = (url) => fetchImpl(url, { headers: { "user-agent": `helios/${status.installed}` }, signal: AbortSignal.timeout(20_000) });
+  const [installer, sums] = await Promise.all([boundedText(await request(`${root}/install.sh`)), boundedText(await request(`${root}/SHA256SUMS`))]);
+  const expected = sums.split("\n").map((line) => line.trim().split(/\s+/)).find(([, name]) => name === "install.sh")?.[0];
+  if (!/^[a-f0-9]{64}$/i.test(expected || "")) throw new Error("Release checksum manifest does not contain install.sh.");
+  const actual = crypto.createHash("sha256").update(installer).digest("hex");
+  if (actual !== expected.toLowerCase()) throw new Error("Downloaded installer failed SHA-256 verification.");
+  const directory = await mkdtemp(path.join(os.tmpdir(), "helios-update-")); const file = path.join(directory, "install.sh");
+  try {
+    await writeFile(file, installer, { mode: 0o700 }); await chmod(file, 0o700);
+    const code = await new Promise((resolve, reject) => {
+      const child = spawnImpl("/bin/bash", [file], { env: { ...env, HELIOS_VERSION: status.latest }, stdio: "inherit" });
+      child.once("error", reject); child.once("exit", (value, signal) => signal ? reject(new Error(`Installer stopped by ${signal}.`)) : resolve(value ?? 1));
+    });
+    if (code !== 0) throw new Error(`Installer failed with exit code ${code}.`);
+    return { ...status, updated: true };
+  } finally { await rm(directory, { recursive: true, force: true }); }
 }
 
 export function startUpdateChecks({ config, ui, fetchImpl = fetch }) {
