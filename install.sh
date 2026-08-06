@@ -2,13 +2,14 @@
 set -euo pipefail
 
 REPOSITORY="aidenbuildsthings/helios"
-VERSION="${HELIOS_VERSION:-0.3.0}"
+VERSION="${HELIOS_VERSION:-0.3.1}"
 RELEASE_ROOT="https://github.com/$REPOSITORY/releases/download/v$VERSION"
 ARCHIVE_NAME="helios-$VERSION.tar.gz"
 ARCHIVE_URL="$RELEASE_ROOT/$ARCHIVE_NAME"
 INSTALL_ROOT="${HELIOS_INSTALL_DIR:-$HOME/.local/share/helios}"
 BIN_DIR="${HELIOS_BIN_DIR:-$HOME/.local/bin}"
 BIN_PATH="$BIN_DIR/helios"
+STATE_DIR="${HELIOS_HOME:-$HOME/.helios}"
 
 command -v curl >/dev/null 2>&1 || { echo "Helios requires curl."; exit 1; }
 command -v node >/dev/null 2>&1 || { echo "Helios requires Node.js 22.22.3 or newer."; exit 1; }
@@ -17,7 +18,8 @@ if ! node -e 'const [a,b,c]=process.versions.node.split(".").map(Number); proces
   exit 1
 fi
 
-mkdir -p "$INSTALL_ROOT" "$BIN_DIR"
+mkdir -p "$INSTALL_ROOT" "$BIN_DIR" "$STATE_DIR"
+chmod 700 "$STATE_DIR"
 DOWNLOAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/helios-download.XXXXXX")"
 STAGING_DIR="$(mktemp -d "$INSTALL_ROOT/.install.XXXXXX")"
 trap 'rm -rf "$DOWNLOAD_DIR" "$STAGING_DIR"' EXIT
@@ -54,4 +56,5 @@ mv -f "$NEXT_BIN" "$BIN_PATH"
 
 echo
 echo "Helios v$VERSION installed."
+echo "State directory: $STATE_DIR"
 echo "Run: helios onboard"

@@ -8,6 +8,14 @@ curl -fsSL https://github.com/aidenbuildsthings/helios/releases/latest/download/
 
 Then run `helios onboard`.
 
+Installation creates three locations:
+
+- `~/.local/share/helios/` — versioned application files
+- `~/.local/bin/helios` — command symlink
+- `~/.helios/` — private configuration, memory, sessions, skills, and logs
+
+The installer creates `~/.helios/` with owner-only permissions and never overwrites its contents during updates.
+
 Keep the installation healthy with:
 
 ```sh

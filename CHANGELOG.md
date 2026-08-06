@@ -4,6 +4,12 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-06
+
+### Changed
+
+- The one-line installer now creates the private `~/.helios/` state directory immediately with owner-only permissions, while preserving existing state during installs and updates.
+
 ## [0.3.0] - 2026-08-06
 
 ### Added
@@ -88,7 +94,8 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 - Built-in computer use, browser bridge, delegation, and learned capabilities.
 - Stable one-line installer served from the latest GitHub release.
 
-[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/aidenbuildsthings/helios/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/aidenbuildsthings/helios/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/aidenbuildsthings/helios/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/aidenbuildsthings/helios/compare/v0.2.2...v0.2.3
