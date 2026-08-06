@@ -12,7 +12,7 @@ test("doctor reports a healthy configured installation", async () => {
   const env = { HELIOS_HOME: home, OPENAI_API_KEY: "test" };
   await writeConfig({ version: 2, provider: "openai", model: "gpt-test", workspace, credentials: {}, channels: {}, autonomy: { mode: "guarded" } }, env);
   await writeFile(path.join(home, "helios.db"), Buffer.from("SQLite format 3\0rest"));
-  const results = await runDoctor({ env, platform: "linux", readSecretImpl: async (name, values) => values[name] || null });
+  const results = await runDoctor({ env, platform: process.platform, readSecretImpl: async (name, values) => values[name] || null });
   assert.equal(results.some((item) => item.level === "fail"), false);
   assert.match(formatDoctor(results).text, /No errors/);
 });

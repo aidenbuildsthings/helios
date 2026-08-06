@@ -4,6 +4,12 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-08-05
+
+### Fixed
+
+- Cross-platform operational tests now use native path and permission semantics on Windows.
+
 ## [0.2.2] - 2026-08-05
 
 ### Added
@@ -52,7 +58,8 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 - Built-in computer use, browser bridge, delegation, and learned capabilities.
 - Stable one-line installer served from the latest GitHub release.
 
-[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/aidenbuildsthings/helios/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/aidenbuildsthings/helios/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/aidenbuildsthings/helios/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/aidenbuildsthings/helios/compare/v0.1.1...v0.2.0
