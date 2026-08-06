@@ -4,6 +4,12 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-05
+
+### Fixed
+
+- Align the legacy Unix process-discovery test with Helios's explicit Windows restart behavior.
+
 ## [0.2.3] - 2026-08-05
 
 ### Fixed
@@ -58,7 +64,8 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 - Built-in computer use, browser bridge, delegation, and learned capabilities.
 - Stable one-line installer served from the latest GitHub release.
 
-[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/aidenbuildsthings/helios/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/aidenbuildsthings/helios/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/aidenbuildsthings/helios/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/aidenbuildsthings/helios/compare/v0.2.0...v0.2.1
