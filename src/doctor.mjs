@@ -6,13 +6,14 @@ import { paths } from "./paths.mjs";
 import { PROVIDERS } from "./providers/index.mjs";
 import { readRuntime, verifyRuntimeOwner } from "./runtime.mjs";
 import { readSecret } from "./secrets.mjs";
+import { browserStatus } from "./browser/tools.mjs";
 
 function result(level, name, detail, fix = null) { return { level, name, detail, fix }; }
 
 export async function runDoctor({ env = process.env, platform = process.platform, readSecretImpl = readSecret } = {}) {
   const results = []; const locations = paths(env);
-  const [major, minor] = process.versions.node.split(".").map(Number);
-  results.push(major > 22 || (major === 22 && minor >= 5) ? result("pass", "Node.js", process.version) : result("fail", "Node.js", `${process.version} is unsupported.`, "Install Node.js 22.5 or newer."));
+  const [major, minor, patch] = process.versions.node.split(".").map(Number);
+  results.push(major > 22 || (major === 22 && (minor > 22 || (minor === 22 && patch >= 3))) ? result("pass", "Node.js", process.version) : result("fail", "Node.js", `${process.version} is unsupported.`, "Install Node.js 22.22.3 or newer."));
   let configExists = true;
   try { await access(locations.config, constants.R_OK); } catch { configExists = false; results.push(result("fail", "Configuration", "config.json does not exist.", "Run `helios onboard`.")); }
   let config;
@@ -31,6 +32,14 @@ export async function runDoctor({ env = process.env, platform = process.platform
   }
   if (Object.keys(config.credentials || {}).length) results.push(result("fail", "Secret storage", "Plaintext credentials remain in config.json.", "Run `helios onboard` to migrate them to Keychain or environment variables."));
   else results.push(result("pass", "Secret storage", platform === "darwin" ? "No plaintext credentials; macOS Keychain is enabled." : "No plaintext credentials; service environment is required."));
+  if (config.browser.enabled) {
+    const token = await readSecretImpl("HELIOS_BROWSER_TOKEN", env);
+    if (!token) results.push(result("fail", "Browser tool", "HELIOS_BROWSER_TOKEN is missing.", "Run `helios tools enable browser`."));
+    else {
+      const state = await browserStatus(config.browser.port, token);
+      results.push(state.connected ? result("pass", "Browser tool", "The extension is connected.") : state.online ? result("warn", "Browser tool", "The bridge is online but no browser tab is connected.") : result("warn", "Browser tool", "Enabled; start Helios to bring the bridge online."));
+    }
+  }
   const workspace = path.resolve(config.workspace || ".");
   try { await access(workspace, constants.R_OK | constants.W_OK); results.push(result("pass", "Workspace", workspace)); }
   catch { results.push(result("fail", "Workspace", `${workspace} is missing or not readable/writable.`, "Choose an accessible directory with `helios onboard`.")); }

@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { paths } from "./paths.mjs";
@@ -62,17 +62,39 @@ async function waitForExit(pid, timeoutMs = 5_000) {
   return !processExists(pid);
 }
 
-export async function restartHelios({ cliPath, env = process.env, spawnImpl = spawn }) {
-  const record = await readRuntime(env) || await discoverLegacyRuntime(cliPath);
-  if (record && processExists(record.pid)) {
-    if (record.version !== 0 && !(await verifyRuntimeOwner(record))) throw new Error(`Refusing to stop PID ${record.pid}: it could not be verified as Helios.`);
-    process.kill(record.pid, "SIGTERM");
-    if (!(await waitForExit(record.pid))) throw new Error(`Helios PID ${record.pid} did not stop within 5 seconds. Stop it manually and retry.`);
-  }
+export async function stopHelios({ cliPath, env = process.env, readRuntimeImpl = readRuntime, discoverImpl = discoverLegacyRuntime, existsImpl = processExists, verifyImpl = verifyRuntimeOwner, killImpl = process.kill.bind(process), waitImpl = waitForExit, rmImpl = rm } = {}) {
+  const record = await readRuntimeImpl(env) || await discoverImpl(cliPath);
+  if (!record || !existsImpl(record.pid)) { await rmImpl(paths(env).runtime, { force: true }); return { stopped: false }; }
+  if (record.version !== 0 && !(await verifyImpl(record))) throw new Error(`Refusing to stop PID ${record.pid}: it could not be verified as Helios.`);
+  killImpl(record.pid, "SIGTERM");
+  if (!(await waitImpl(record.pid))) throw new Error(`Helios PID ${record.pid} did not stop within 5 seconds. Stop it manually and retry.`);
+  await rmImpl(paths(env).runtime, { force: true });
+  return { stopped: true, pid: record.pid };
+}
+
+export async function startHelios({ cliPath, env = process.env, spawnImpl = spawn } = {}) {
+  if (process.platform === "win32") throw new Error("Background process control is not available on Windows yet. Run `helios` in a terminal.");
+  const current = await readRuntime(env);
+  if (current && await verifyRuntimeOwner(current)) return { started: false, pid: current.pid };
   await rm(paths(env).runtime, { force: true });
-  return new Promise((resolve, reject) => {
-    const child = spawnImpl(process.execPath, [path.resolve(cliPath)], { env, stdio: "inherit" });
-    child.once("error", reject);
-    child.once("exit", (code, signal) => signal ? reject(new Error(`Restarted Helios exited from ${signal}.`)) : resolve(code ?? 0));
-  });
+  await mkdir(paths(env).logs, { recursive: true, mode: 0o700 });
+  const log = await open(path.join(paths(env).logs, "service.log"), "a", 0o600);
+  let child;
+  try {
+    child = spawnImpl(process.execPath, [path.resolve(cliPath), "service"], { env, detached: true, stdio: ["ignore", log.fd, log.fd] });
+    child.unref();
+  } finally { await log.close(); }
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const record = await readRuntime(env).catch(() => null);
+    if (record?.pid === child.pid) return { started: true, pid: child.pid };
+    if (!processExists(child.pid)) throw new Error(`Helios service exited during startup. Check ${path.join(paths(env).logs, "service.log")}.`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Helios did not become ready within 5 seconds. Check ${path.join(paths(env).logs, "service.log")}.`);
+}
+
+export async function restartHelios(options = {}) {
+  await stopHelios(options);
+  return startHelios(options);
 }

@@ -7,7 +7,7 @@ export class BrowserBridge {
     const id = randomUUID();
     this.queue.push({ id, action, input });
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error("Browser extension did not respond. Start `helios browser` and connect a tab.")); }, 20_000);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error("Browser extension did not respond. Enable the browser tool and click the Helios extension icon on a tab.")); }, 20_000);
       this.pending.set(id, (result) => { clearTimeout(timer); result.error ? reject(new Error(result.error)) : resolve(result); });
     });
   }
@@ -26,7 +26,7 @@ export class BrowserBridge {
       const token = request.headers["x-helios-token"];
       const appRequest = token === this.appToken; const extensionRequest = token === this.extensionToken && this.extensionToken;
       if (!appRequest && !extensionRequest) { response.statusCode = 401; response.end(JSON.stringify({ error: "Unauthorized" })); return; }
-      if (request.method === "GET" && request.url === "/health") { response.end(JSON.stringify({ ok: true })); return; }
+      if (request.method === "GET" && request.url === "/health") { response.end(JSON.stringify({ ok: true, connected: Boolean(this.extensionToken) })); return; }
       if (request.method === "GET" && request.url === "/next" && extensionRequest) { response.end(JSON.stringify(this.queue.shift() || null)); return; }
       let raw = ""; for await (const chunk of request) raw += chunk;
       if (request.method === "POST" && request.url === "/action" && appRequest) {

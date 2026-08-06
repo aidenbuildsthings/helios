@@ -3,7 +3,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { parseHeliosProcesses, registerRuntime, verifyRuntimeOwner } from "../src/runtime.mjs";
+import { parseHeliosProcesses, registerRuntime, stopHelios, verifyRuntimeOwner } from "../src/runtime.mjs";
 
 test("runtime registration is private and released by its owner", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "helios-runtime-")); const env = { HELIOS_HOME: home };
@@ -22,4 +22,26 @@ test("legacy process discovery stays inside the current installation root", () =
   const install = path.join(os.tmpdir(), "share", "helios"); const cli = path.join(install, "0.2.2-123", "src", "cli.mjs");
   const matches = parseHeliosProcesses(`101 node ${path.join(install, "0.2.1-100", "src", "cli.mjs")}\n102 node ${path.join(os.tmpdir(), "other", "helios", "src", "cli.mjs")}`, cli, 999);
   assert.deepEqual(matches.map((item) => item.pid), process.platform === "win32" ? [] : [101]);
+});
+
+test("stop terminates only an ownership-verified Helios process", async () => {
+  const calls = [];
+  const result = await stopHelios({
+    cliPath: "/tmp/helios/src/cli.mjs", env: { HELIOS_HOME: "/tmp/test-helios" },
+    readRuntimeImpl: async () => ({ version: 1, pid: 4242, cliPath: "/tmp/helios/src/cli.mjs" }),
+    existsImpl: () => true, verifyImpl: async () => true,
+    killImpl: (pid, signal) => calls.push(["kill", pid, signal]), waitImpl: async () => true,
+    rmImpl: async (target) => calls.push(["remove", target]),
+  });
+  assert.deepEqual(result, { stopped: true, pid: 4242 });
+  assert.equal(calls[0][0], "kill");
+  assert.equal(calls[1][0], "remove");
+});
+
+test("stop refuses an unverified process owner", async () => {
+  await assert.rejects(() => stopHelios({
+    cliPath: "/tmp/helios/src/cli.mjs",
+    readRuntimeImpl: async () => ({ version: 1, pid: 4242 }), existsImpl: () => true,
+    verifyImpl: async () => false, killImpl: () => assert.fail("must not kill"),
+  }), /Refusing to stop/);
 });

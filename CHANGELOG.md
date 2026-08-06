@@ -4,6 +4,30 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-06
+
+### Added
+
+- `helios start`, `stop`, `restart`, and `ping` manage and inspect the background service used by channels, scheduled work, update checks, and browser control.
+- `helios models` changes providers and models through an arrow-key flow and verifies inference before saving.
+- `helios channels` lists, adds, and removes Telegram, Discord, and Slack independently of full onboarding.
+- `helios tools` independently manages built-in browser and computer-use tools.
+- `helios version` reports the release, source commit, and installation time from signed release metadata.
+- `helios uninstall` removes the program while preserving user data; `--purge` additionally removes state and Keychain secrets after confirmation.
+- `helios help` provides the complete operator command list.
+- Browser control can be selected during onboarding and its authenticated localhost bridge starts with Helios.
+
+### Changed
+
+- `helios skills add` is now the primary spelling for verified instruction-skill installation; `install` remains accepted.
+- Interactive chats reuse a running background service instead of opening duplicate channel connections.
+
+### Security
+
+- Process control stops only a PID whose command line is verified as the recorded Helios installation.
+- Uninstall refuses source checkouts and unrecognized installation paths.
+- Browser control remains disabled until explicitly enabled and uses the bundled extension instead of downloading a large executable browser runtime.
+
 ## [0.2.4] - 2026-08-05
 
 ### Fixed
@@ -64,7 +88,8 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 - Built-in computer use, browser bridge, delegation, and learned capabilities.
 - Stable one-line installer served from the latest GitHub release.
 
-[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/aidenbuildsthings/helios/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/aidenbuildsthings/helios/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/aidenbuildsthings/helios/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/aidenbuildsthings/helios/compare/v0.2.1...v0.2.2

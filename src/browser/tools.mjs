@@ -16,6 +16,13 @@ export function browserTools({ port, token }) {
 }
 
 export async function browserReady(port, token) {
-  try { return (await fetch(`http://127.0.0.1:${port}/health`, { headers: { "x-helios-token": token }, signal: AbortSignal.timeout(250) })).ok; }
-  catch { return false; }
+  return (await browserStatus(port, token)).online;
+}
+
+export async function browserStatus(port, token) {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/health`, { headers: { "x-helios-token": token }, signal: AbortSignal.timeout(250) });
+    if (!response.ok) return { online: false, connected: false };
+    const body = await response.json(); return { online: true, connected: Boolean(body.connected) };
+  } catch { return { online: false, connected: false }; }
 }

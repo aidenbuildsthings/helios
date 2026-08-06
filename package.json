@@ -1,6 +1,6 @@
 {
   "name": "helios-business-agent",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "A focused local business agent",
   "type": "module",
   "bin": {
@@ -11,7 +11,7 @@
     "test": "node --test test/**/*.test.mjs"
   },
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=22.22.3"
   },
   "license": "MIT",
   "dependencies": {

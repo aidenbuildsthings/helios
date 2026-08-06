@@ -15,7 +15,10 @@ jobs:
       - name: Build versioned archive and checksums
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          git archive --format=tar.gz --prefix="helios-$VERSION/" -o "helios-$VERSION.tar.gz" "$GITHUB_REF_NAME"
+          mkdir release-root
+          git archive "$GITHUB_REF_NAME" | tar -x -C release-root
+          printf '{"version":"%s","commit":"%s"}\n' "$VERSION" "$GITHUB_SHA" > release-root/build.json
+          tar -czf "helios-$VERSION.tar.gz" --transform "s,^,helios-$VERSION/," -C release-root .
           sha256sum install.sh "helios-$VERSION.tar.gz" > SHA256SUMS
       - name: Extract version notes from changelog
         run: awk -v version="${GITHUB_REF_NAME#v}" '$0 == "## [" version "]" || index($0, "## [" version "] -") == 1 {copy=1; next} copy && /^## \[/ {exit} copy {print}' CHANGELOG.md > RELEASE_NOTES.md

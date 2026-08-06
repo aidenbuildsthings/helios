@@ -4,7 +4,6 @@ import { readConfig, writeConfig } from "./config.mjs";
 import { onboard } from "./onboard.mjs";
 import { Store } from "./store.mjs";
 import { TerminalUI } from "./tui/ui.mjs";
-import { CHANNELS } from "./channels/index.mjs";
 import { runChannels, startChannels } from "./gateway.mjs";
 import { BrowserBridge } from "./browser/bridge.mjs";
 import { CapabilityStore } from "./capabilities/store.mjs";
@@ -17,22 +16,28 @@ import { readSecret, writeSecret } from "./secrets.mjs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { formatDoctor, runDoctor } from "./doctor.mjs";
-import { registerRuntime, restartHelios } from "./runtime.mjs";
+import { readRuntime, registerRuntime, restartHelios, startHelios, stopHelios, verifyRuntimeOwner } from "./runtime.mjs";
+import { buildInfo, manageChannels, manageModels, manageTools, uninstallHelios } from "./management.mjs";
 
 const ui = new TerminalUI();
 const [command = "chat", ...args] = process.argv.slice(2);
 
 async function chat() {
   const requestedSession = command === "--session" ? args[0] : args[0] === "--session" ? args[1] : null;
-  const app = await createApp({ ui, sessionId: requestedSession });
-  const runtime = await registerRuntime({ cliPath: fileURLToPath(import.meta.url) });
+  const browserBridge = await startBrowserIfEnabled(await readConfig());
+  let app;
+  try { app = await createApp({ ui, sessionId: requestedSession }); }
+  catch (error) { browserBridge?.stop(); throw error; }
+  const background = await readRuntime().then((record) => record && verifyRuntimeOwner(record)).catch(() => false);
   let channels; let updates; let scheduler;
   let requestStop; const stop = new Promise((resolve) => { requestStop = resolve; });
   const onTerminate = () => requestStop(null); process.once("SIGTERM", onTerminate);
   try {
-    channels = await startChannels({ config: app.config, ui });
-    updates = startUpdateChecks({ config: app.config, ui });
-    scheduler = await startScheduler({ config: app.config, ui });
+    if (!background) {
+      channels = await startChannels({ config: app.config, ui });
+      updates = startUpdateChecks({ config: app.config, ui });
+      scheduler = await startScheduler({ config: app.config, ui });
+    }
     const banner = async () => ui.banner({ model: `${app.config.provider}/${app.config.model}`, session: app.sessionId.slice(0, 8), workspace: app.workspace, capabilities: (await app.capabilityStore.list()).length, autonomy: app.config.autonomy.mode });
     await banner();
     while (true) {
@@ -56,12 +61,51 @@ async function chat() {
       try { ui.assistant(await app.agent.send(input)); }
       catch (error) { ui.error(error.message); }
     }
-  } finally { process.off("SIGTERM", onTerminate); channels?.stop(); updates?.stop(); scheduler?.stop(); app.store.close(); await runtime.release(); }
+  } finally { process.off("SIGTERM", onTerminate); channels?.stop(); updates?.stop(); scheduler?.stop(); browserBridge?.stop(); app.store.close(); }
+}
+
+async function service() {
+  const config = await readConfig(); const runtime = await registerRuntime({ cliPath: fileURLToPath(import.meta.url) });
+  let browserBridge; let app;
+  let channels; let updates; let scheduler; let finish; const stopped = new Promise((resolve) => { finish = resolve; });
+  const stop = () => finish(); process.once("SIGINT", stop); process.once("SIGTERM", stop);
+  try {
+    browserBridge = await startBrowserIfEnabled(config); app = await createApp({ ui, surface: "remote" });
+    channels = await startChannels({ config, ui }); updates = startUpdateChecks({ config, ui }); scheduler = await startScheduler({ config, ui }); ui.line(`Helios service ready (PID ${process.pid}).`); await stopped;
+  } finally { process.off("SIGINT", stop); process.off("SIGTERM", stop); channels?.stop(); updates?.stop(); scheduler?.stop(); browserBridge?.stop(); app?.store.close(); await runtime.release(); }
+}
+
+async function startBrowserIfEnabled(config) {
+  if (!config.browser.enabled) return null;
+  const token = await readSecret("HELIOS_BROWSER_TOKEN");
+  if (!token) { ui.line("Browser tool is enabled but HELIOS_BROWSER_TOKEN is unavailable. Run `helios tools enable browser`."); return null; }
+  try { return await new BrowserBridge({ port: config.browser.port, appToken: token }).start(); }
+  catch (error) { if (error?.code === "EADDRINUSE") return null; throw error; }
 }
 
 async function main() {
   if (["help", "-h", "--help"].includes(command)) {
-    ui.line("Helios — local business agent\n\n  helios                              Start a new conversation\n  helios --session <id>               Resume a conversation\n  helios onboard                      Configure Helios\n  helios update                       Install the latest verified release\n  helios doctor                       Diagnose configuration and runtime errors\n  helios restart                      Stop the running Helios process and start it again\n  helios sessions                     List conversations\n  helios capabilities                 Manage learned capabilities\n  helios skills                       Manage instruction-only skills\n  helios workers                      Manage persistent workers\n  helios cron                         Manage scheduled prompts\n  helios updates check                Check for updates without an LLM\n  helios autonomy [on|off|status]     Control autonomous execution\n  helios computer status              Check built-in computer control\n  helios status                       Show local configuration\n  helios channels status              Show channel connections\n  helios channels connect [name]      Connect Slack, Discord, or Telegram\n  helios browser                      Run the local browser bridge\n");
+    ui.line(`Helios — local business agent
+
+  helios                                 Start a conversation
+  helios onboard                         Configure Helios
+  helios update                          Install the latest verified release
+  helios uninstall [--purge]            Remove Helios; optionally remove user data
+  helios doctor                          Full installation diagnostics
+  helios ping                            Quick background-service liveness check
+  helios start|stop|restart              Control the background service
+  helios version                         Print build and installation information
+  helios models [list|set]               View or change the active model
+  helios channels [list|add|edit|remove] Manage messaging channels
+  helios skills [list|add|remove]        Manage instruction-only skills
+  helios tools [list|enable|disable]     Manage browser and computer tools
+  helios sessions                        List conversations
+  helios capabilities                    Manage learned capabilities
+  helios workers                         Manage persistent workers
+  helios cron                            Manage scheduled prompts
+  helios autonomy [on|off|status]        Control autonomous execution
+  helios help                            Show this command list
+`);
   } else if (command === "onboard") await onboard(ui, await readConfig());
   else if (command === "update") {
     ui.line("Checking for a verified Helios release…");
@@ -70,7 +114,25 @@ async function main() {
   } else if (command === "doctor") {
     ui.line("\nHELIOS DOCTOR\n"); const report = formatDoctor(await runDoctor()); ui.line(report.text); if (report.failures) process.exitCode = 1;
   } else if (command === "restart") {
-    ui.line("Restarting Helios…\n"); ui.close(); const code = await restartHelios({ cliPath: fileURLToPath(import.meta.url) }); process.exitCode = code;
+    const result = await restartHelios({ cliPath: fileURLToPath(import.meta.url) }); ui.line(`Helios restarted (PID ${result.pid}).`);
+  } else if (command === "start") {
+    const result = await startHelios({ cliPath: fileURLToPath(import.meta.url) }); ui.line(result.started ? `Helios started (PID ${result.pid}).` : `Helios is already running (PID ${result.pid}).`);
+  } else if (command === "stop") {
+    const result = await stopHelios({ cliPath: fileURLToPath(import.meta.url) }); ui.line(result.stopped ? `Helios stopped (PID ${result.pid}).` : "Helios is not running.");
+  } else if (command === "ping") {
+    const runtime = await readRuntime(); const live = runtime && await verifyRuntimeOwner(runtime);
+    if (live) ui.line(`pong · Helios is alive (PID ${runtime.pid}, since ${runtime.startedAt}).`);
+    else { ui.line("Helios is not running. Start it with `helios start`."); process.exitCode = 1; }
+  } else if (["version", "--version", "-v"].includes(command)) {
+    const info = await buildInfo(fileURLToPath(import.meta.url)); ui.line(`Helios ${info.version}\nCommit: ${info.commit}\nInstalled: ${info.installedAt}`);
+  } else if (command === "models") await manageModels(ui, args);
+  else if (command === "tools") await manageTools(ui, args);
+  else if (command === "uninstall") {
+    const purge = args.includes("--purge");
+    const approved = await ui.approve({ title: `Uninstall Helios${purge ? " and permanently delete its data" : ""}`, detail: purge ? "This removes the program, configuration, sessions, memory, skills, and logs." : "The program will be removed. ~/.helios data will be preserved." });
+    if (!approved) throw new Error("Uninstall cancelled.");
+    await stopHelios({ cliPath: fileURLToPath(import.meta.url) }); const result = await uninstallHelios({ cliPath: fileURLToPath(import.meta.url), purge });
+    ui.line(`Helios removed from ${result.installRoot}.${result.dataRemoved ? " User data was also removed." : " User data was preserved in ~/.helios."}`);
   } else if (command === "status") {
     const config = await readConfig();
     ui.line(`Provider: ${config.provider || "not configured"}\nModel: ${config.model || "not configured"}\nWorkspace: ${config.workspace || "not configured"}\nAutonomy: ${config.autonomy.mode}`);
@@ -79,14 +141,8 @@ async function main() {
     try { store.sessions().forEach((session) => ui.line(`${session.id}  ${session.updated_at}`)); }
     finally { store.close(); }
   } else if (command === "channels") {
-    const action = args[0] || "status";
-    const config = await readConfig();
-    if (action === "status") {
-      Object.keys(CHANNELS).forEach((id) => ui.line(`${config.channels?.[id]?.enabled ? "●" : "○"} ${CHANNELS[id].label}`));
-    } else if (action === "connect") {
-      throw new Error("Run `helios onboard` to connect channels securely with Keychain storage and sender allowlists.");
-    } else if (action === "run") await runChannels({ config, ui });
-    else throw new Error("Usage: helios channels [status|connect|run]");
+    if (args[0] === "run") await runChannels({ config: await readConfig(), ui });
+    else await manageChannels(ui, args);
   } else if (command === "autonomy") {
     const action = args[0] || "status";
     const config = await readConfig();
@@ -137,14 +193,13 @@ async function main() {
     const action = args[0] || "list"; const config = await readConfig(); const store = await new Store(process.env, config).open();
     try {
       if (action === "list") { const items = store.skills(); if (!items.length) ui.line("No installed skills."); else items.forEach((item) => ui.line(`${item.id}  ${item.name}\n  ${item.source}\n  sha256:${item.sha256}`)); }
-      else if (action === "install") {
-        if (!config.skills.enabled) throw new Error("Downloaded skills are disabled. Enable them with `helios onboard`.");
+      else if (action === "install" || action === "add") {
         const source = args[1] || (await ui.question("ClawHub skill or GitHub SKILL.md URL: ")).trim(); const skill = await downloadSkill(source);
         ui.line(`\nSkill: ${skill.name}\nSource: ${skill.source}\nSHA-256: ${skill.sha256}\n\n${skill.content.slice(0, 2000)}${skill.content.length > 2000 ? "\n…" : ""}`);
         if (!(await ui.approve({ title: `Install instruction skill “${skill.name}”`, detail: "Skills are untrusted instructions. Helios will not execute bundled code, but the text may influence model behavior." }))) throw new Error("Skill installation cancelled.");
-        store.saveSkill(skill); ui.line(`Installed ${skill.id}.`);
+        store.saveSkill(skill); if (!config.skills.enabled) await writeConfig({ ...config, skills: { enabled: true } }); ui.line(`Installed ${skill.id}.`);
       } else if (action === "remove") { if (!store.removeSkill(args[1] || "")) throw new Error("Skill not found."); ui.line("Skill removed."); }
-      else throw new Error("Usage: helios skills [list|install <clawhub-skill-or-github-url>|remove <id>]");
+      else throw new Error("Usage: helios skills [list|add <clawhub-skill-or-github-url>|remove <id>]");
     } finally { store.close(); }
   } else if (command === "capabilities") {
     const action = args[0] || "list";
@@ -171,7 +226,8 @@ async function main() {
     ui.line(`Helios browser bridge is listening on 127.0.0.1:${config.browser.port}.\nLoad the installed browser-extension folder in Chrome and click its toolbar icon.`);
     await new Promise((resolve) => { process.once("SIGINT", resolve); process.once("SIGTERM", resolve); });
     bridge.stop();
-  } else if (command === "chat" || command === "tui" || command === "--session") await chat();
+  } else if (command === "service") await service();
+  else if (command === "chat" || command === "tui" || command === "--session") await chat();
   else throw new Error(`Unknown command: ${command}. Run \`helios --help\`.`);
 }
 

@@ -5,11 +5,13 @@ import { createProvider, PROVIDERS } from "./providers/index.mjs";
 import { loginOpenAI } from "./auth/openai-oauth.mjs";
 import { CHANNELS } from "./channels/index.mjs";
 import { readSecret, writeSecret } from "./secrets.mjs";
+import crypto from "node:crypto";
 
 const featureChoices = [
   ["updates", "Update checks every 6 hours"], ["scheduler", "User cron jobs"],
   ["skills", "Downloaded instruction skills (quarantined by default)"], ["workers", "Persistent user-created workers"],
   ["computer", "Computer use"], ["learning", "Self-improving capabilities"],
+  ["browser", "Browser control through the bundled Chrome extension"],
 ];
 
 export async function onboard(ui, existing, env = process.env) {
@@ -89,11 +91,16 @@ export async function onboard(ui, existing, env = process.env) {
     updates: { enabled: enabled.has("updates"), intervalHours: 6 }, scheduler: { enabled: enabled.has("scheduler") },
     skills: { enabled: enabled.has("skills") }, workers: { enabled: enabled.has("workers") },
     computer: { enabled: enabled.has("computer") }, learning: { enabled: enabled.has("learning") },
+    browser: { ...existing.browser, enabled: enabled.has("browser") },
   };
   await verifyModel(config, { apiKey, oauth });
   if (metadata.credential && apiKey && !env[metadata.credential]) await writeSecret(metadata.credential, apiKey);
   if (oauth) await writeSecret("OPENAI_CODEX_AUTH", JSON.stringify(oauth));
   for (const [name, value] of channelSecrets) if (!env[name]) await writeSecret(name, value);
+  if (config.browser.enabled && !(await readSecret("HELIOS_BROWSER_TOKEN", env))) {
+    if (process.platform !== "darwin") throw new Error("Set HELIOS_BROWSER_TOKEN to a random 64-character value in the service environment before enabling browser control.");
+    await writeSecret("HELIOS_BROWSER_TOKEN", crypto.randomBytes(32).toString("hex"));
+  }
   await writeConfig(config, env);
   ui.line(`\n✓ Helios is ready\n  Model: ${selected}/${model}\n  Memory: ${memory.backend}\n  Channels: ${Object.keys(channels).join(", ") || "none"}\n  Security: ${config.autonomy.mode}\n\nRun \`helios\`.\n`);
   return config;

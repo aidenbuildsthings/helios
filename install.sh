@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPOSITORY="aidenbuildsthings/helios"
-VERSION="${HELIOS_VERSION:-0.2.4}"
+VERSION="${HELIOS_VERSION:-0.3.0}"
 RELEASE_ROOT="https://github.com/$REPOSITORY/releases/download/v$VERSION"
 ARCHIVE_NAME="helios-$VERSION.tar.gz"
 ARCHIVE_URL="$RELEASE_ROOT/$ARCHIVE_NAME"
@@ -11,10 +11,9 @@ BIN_DIR="${HELIOS_BIN_DIR:-$HOME/.local/bin}"
 BIN_PATH="$BIN_DIR/helios"
 
 command -v curl >/dev/null 2>&1 || { echo "Helios requires curl."; exit 1; }
-command -v node >/dev/null 2>&1 || { echo "Helios requires Node.js 22.5 or newer."; exit 1; }
-NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])')"
-if [ "$NODE_MAJOR" -lt 22 ]; then
-  echo "Helios requires Node.js 22.5 or newer (found $(node --version))."
+command -v node >/dev/null 2>&1 || { echo "Helios requires Node.js 22.22.3 or newer."; exit 1; }
+if ! node -e 'const [a,b,c]=process.versions.node.split(".").map(Number); process.exit(a>22 || (a===22 && (b>22 || (b===22 && c>=3))) ? 0 : 1)'; then
+  echo "Helios requires Node.js 22.22.3 or newer (found $(node --version))."
   exit 1
 fi
 
@@ -33,8 +32,9 @@ if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then echo "Helios archive checksum veri
 tar -xzf "$DOWNLOAD_DIR/helios.tar.gz" -C "$DOWNLOAD_DIR"
 SOURCE_DIR="$DOWNLOAD_DIR/helios-$VERSION"
 
-cp "$SOURCE_DIR/package.json" "$SOURCE_DIR/package-lock.json" "$SOURCE_DIR/README.md" "$STAGING_DIR"/
+cp "$SOURCE_DIR/package.json" "$SOURCE_DIR/package-lock.json" "$SOURCE_DIR/README.md" "$SOURCE_DIR/build.json" "$STAGING_DIR"/
 cp -R "$SOURCE_DIR/src" "$SOURCE_DIR/browser-extension" "$STAGING_DIR"/
+node -e 'const fs=require("fs"); const file=process.argv[1]; const value=JSON.parse(fs.readFileSync(file)); value.installedAt=new Date().toISOString(); fs.writeFileSync(file, JSON.stringify(value,null,2)+"\n", {mode:0o600})' "$STAGING_DIR/build.json"
 (
   cd "$STAGING_DIR"
   npm_config_cache="$INSTALL_ROOT/.npm-cache" npm install --omit=dev --ignore-scripts --no-audit --no-fund

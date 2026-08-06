@@ -17,6 +17,17 @@ export async function writeSecret(name, value) {
   await execFileAsync("/usr/bin/security", ["add-generic-password", "-U", "-a", os.userInfo().username, "-s", service(name), "-w", value], { maxBuffer: 100_000 });
 }
 
+export async function deleteSecret(name) {
+  if (process.platform !== "darwin") return false;
+  try {
+    await execFileAsync("/usr/bin/security", ["delete-generic-password", "-a", os.userInfo().username, "-s", service(name)], { maxBuffer: 100_000 });
+    return true;
+  } catch (error) {
+    if (error?.code === 44 || error?.stderr?.includes("could not be found")) return false;
+    throw new Error(`macOS Keychain failed for ${name}.`);
+  }
+}
+
 export async function migrateLegacySecrets(config, env = process.env) {
   const pending = [];
   for (const [name, value] of Object.entries(config.credentials || {})) {

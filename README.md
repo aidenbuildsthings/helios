@@ -13,11 +13,19 @@ Keep the installation healthy with:
 ```sh
 helios update   # install the latest checksum-verified release
 helios doctor   # diagnose configuration and runtime problems
-helios restart  # stop the foreground Helios process and run it again
+helios restart  # restart the background Helios service
 ```
 
-`helios restart` manages Helios's foreground process. If a VPS supervisor such as systemd
-owns Helios, restart that service through the supervisor instead.
+Run persistent channels, scheduled jobs, update checks, and browser control in the background:
+
+```sh
+helios start
+helios ping
+helios stop
+helios restart
+```
+
+If a VPS supervisor such as systemd owns Helios, control that service through the supervisor instead.
 
 See [CHANGELOG.md](CHANGELOG.md) for every update and [SECURITY.md](SECURITY.md) for the threat model and hardened VPS guidance.
 
@@ -38,10 +46,43 @@ Telegram ───────┤       │
 Browser bridge ─┘       └── SQLite sessions + local or Obsidian memory
 ```
 
-Connected channels start with `helios`; no separate gateway command is required. The
-terminal and channels use the same agent core. Remote messages cannot approve
+Connected channels run with an interactive `helios` session or `helios start`; no separate
+gateway command is required. The terminal and channels use the same agent core. Remote messages cannot approve
 local writes or command execution. Browser tools are exposed only while the local bridge
 is reachable.
+
+## Management commands
+
+```sh
+helios models                 # choose and verify a provider/model
+helios channels list
+helios channels add telegram
+helios channels edit telegram
+helios channels remove telegram
+helios skills list
+helios skills add <ClawHub-skill-or-GitHub-SKILL.md>
+helios skills remove <id>
+helios tools list
+helios tools enable browser
+helios tools disable computer
+helios version
+helios help
+```
+
+`helios uninstall` removes the installed program but preserves `~/.helios`. Use
+`helios uninstall --purge` only when configuration, sessions, memory, skills, logs, and
+Keychain credentials should also be permanently removed.
+
+## Browser control
+
+Browser control is opt-in. Enable it during onboarding or with `helios tools enable browser`,
+load the bundled `browser-extension` directory as an unpacked Chrome extension, and click its
+toolbar icon on the tab Helios may use. The authenticated bridge binds only to `127.0.0.1` and
+starts automatically with an interactive or background Helios process.
+
+Helios intentionally uses the extension rather than bundling Playwright. Playwright requires
+version-matched browser downloads that consume hundreds of megabytes and must be refreshed with
+library updates; the extension is smaller and works with the browser session the user explicitly selects.
 
 ## Setup
 

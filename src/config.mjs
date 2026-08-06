@@ -16,7 +16,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   skills: { enabled: false },
   workers: { enabled: true },
   computer: { enabled: true },
-  browser: { port: 47821 },
+  browser: { enabled: false, port: 47821 },
   autonomy: { mode: "guarded" },
 });
 
