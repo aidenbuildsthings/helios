@@ -31,7 +31,7 @@ async function windowsDatabase(env) {
 async function windowsCrypt(value, decrypt = false) {
   // Call DPAPI directly so protection does not depend on optional PowerShell modules.
   const operation = decrypt ? "Unprotect" : "Protect";
-  const script = `$b=[Convert]::FromBase64String([Console]::In.ReadToEnd());$p=[System.Security.Cryptography.ProtectedData]::${operation}($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[Console]::Out.Write([Convert]::ToBase64String($p))`;
+  const script = `[void][Reflection.Assembly]::LoadWithPartialName('System.Security');$b=[Convert]::FromBase64String([Console]::In.ReadToEnd());$p=[System.Security.Cryptography.ProtectedData]::${operation}($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[Console]::Out.Write([Convert]::ToBase64String($p))`;
   const result = await runWithInput("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], decrypt ? value : Buffer.from(value, "utf8").toString("base64"));
   return decrypt ? Buffer.from(result, "base64").toString("utf8") : result;
 }
