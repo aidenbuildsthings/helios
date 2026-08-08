@@ -14,8 +14,8 @@ test("runtime registration is private and released by its owner", async () => {
 });
 
 test("runtime ownership requires the recorded Helios command", async () => {
-  assert.equal(await verifyRuntimeOwner({ pid: process.pid, cliPath: "/tmp/helios/src/cli.mjs" }, async () => ({ stdout: "node /tmp/helios/src/cli.mjs" })), process.platform !== "win32");
-  assert.equal(await verifyRuntimeOwner({ pid: process.pid, cliPath: "/tmp/helios/src/cli.mjs" }, async () => ({ stdout: "unrelated-process" })), false);
+  assert.equal(await verifyRuntimeOwner({ pid: process.pid, cliPath: "/tmp/helios/src/cli.mjs" }, async () => ({ stdout: "node /tmp/helios/src/cli.mjs" }), "linux"), true);
+  assert.equal(await verifyRuntimeOwner({ pid: process.pid, cliPath: "/tmp/helios/src/cli.mjs" }, async () => ({ stdout: "unrelated-process" }), "linux"), false);
 });
 
 test("Windows runtime ownership reads the process command line", async () => {
