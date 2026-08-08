@@ -193,10 +193,19 @@ main { flex: 1; min-width: 0; overflow: auto; background: var(--black); padding:
 .board-empty { padding: 24px 6px; text-align: center; color: var(--dim); font-size: 8px; letter-spacing: .12em; }
 .form-stack { display: flex; flex-direction: column; gap: 17px; }
 .form-stack label { display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 9px; letter-spacing: .12em; }
-.form-stack input, .form-stack textarea { width: 100%; border: 1px solid var(--border); background: var(--black); outline: 0; padding: 10px 11px; color: var(--text); }
+.form-stack input, .form-stack textarea, .form-stack select { width: 100%; border: 1px solid var(--border); background: var(--black); outline: 0; padding: 10px 11px; color: var(--text); }
 .form-stack textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
 .form-stack input:focus, .form-stack textarea:focus { border-color: var(--muted); }
 .form-stack small { color: var(--dim); letter-spacing: 0; line-height: 1.5; }
+.cron-card { display: flex; align-items: center; gap: 14px; padding: 14px; border-bottom: 1px solid var(--border-soft); }
+.cron-card:last-child { border-bottom: 0; }
+.cron-time { width: 138px; flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; }
+.cron-time b { font-size: 12px; letter-spacing: .08em; }
+.cron-time span, .cron-meta { color: var(--dim); font-size: 8px; letter-spacing: .1em; }
+.cron-meta { margin-top: 8px; }
+.helper-copy { margin: 14px 0 0; color: var(--muted); font-size: 9px; line-height: 1.6; text-transform: uppercase; }
+.notice { padding: 11px 14px; border: 1px solid #735b29; color: var(--warn); background: color-mix(in srgb, var(--warn) 7%, transparent); font-size: 9px; letter-spacing: .09em; }
+.form-error { color: var(--danger); border: 1px solid #743934; padding: 9px 10px; font-size: 9px; letter-spacing: .05em; }
 .setting-row { min-height: 62px; padding: 12px 14px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .setting-row:last-child { border-bottom: 0; }
 .setting-row b { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }

@@ -45,3 +45,20 @@ test("desktop bridge returns persisted messages for the selected chat session", 
   assert.equal(response.id, 2);
   assert.deepEqual(response.result.at(-1), saved);
 });
+
+test("desktop bridge creates, pauses, and removes cron jobs", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "helios-desktop-cron-"));
+  const env = { ...process.env, HELIOS_HOME: home };
+  const request = async (id, method, params = {}) => {
+    const child = spawn(process.execPath, [path.join(root, "src", "cli.mjs"), "desktop-bridge"], { env, stdio: ["pipe", "pipe", "pipe"] });
+    child.stdin.end(`${JSON.stringify({ id, method, params })}\n`);
+    let output = "";
+    for await (const chunk of child.stdout) output += chunk;
+    return JSON.parse(output.trim());
+  };
+  assert.equal((await request(1, "cron.create", { name: "Morning brief", expression: "0 9 * * 1-5", prompt: "Prepare a briefing" })).result, true);
+  assert.equal((await request(2, "cron.setEnabled", { id: "morning-brief", enabled: false })).result, true);
+  assert.equal((await request(3, "snapshot")).result.jobs[0].enabled, 0);
+  assert.equal((await request(4, "cron.remove", { id: "morning-brief" })).result, true);
+  assert.deepEqual((await request(5, "snapshot")).result.jobs, []);
+});

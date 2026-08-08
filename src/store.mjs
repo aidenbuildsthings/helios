@@ -100,6 +100,10 @@ export class Store {
     const now = new Date().toISOString();
     this.db.prepare("INSERT INTO cron_jobs(id,name,expression,prompt,worker_id,enabled,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)").run(id, name, expression, prompt, workerId, now, now);
   }
+  setCronJobEnabled(id, enabled) {
+    return this.db.prepare("UPDATE cron_jobs SET enabled=?,updated_at=? WHERE id=?")
+      .run(enabled ? 1 : 0, new Date().toISOString(), id).changes > 0;
+  }
   markCronRun(id, slot) { this.db.prepare("UPDATE cron_jobs SET last_slot=?,updated_at=? WHERE id=?").run(slot, new Date().toISOString(), id); }
   removeCronJob(id) { return this.db.prepare("DELETE FROM cron_jobs WHERE id=?").run(id).changes > 0; }
   skills() { return this.db.prepare("SELECT id,name,description,source,sha256,enabled,installed_at FROM skills ORDER BY name").all(); }

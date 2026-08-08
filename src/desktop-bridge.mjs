@@ -9,6 +9,7 @@ import { buildInfo } from "./management.mjs";
 import { paths } from "./paths.mjs";
 import { PROVIDERS } from "./providers/index.mjs";
 import { readRuntime, verifyRuntimeOwner } from "./runtime.mjs";
+import { validateCron } from "./scheduler.mjs";
 import { Store } from "./store.mjs";
 
 const MAX_LINE_BYTES = 1_000_000;
@@ -107,6 +108,33 @@ export async function runDesktopBridge({ input = process.stdin, output = process
     if (method === "subagent.remove") {
       const config = await readConfig(env); const store = await new Store(env, config).open();
       try { return store.removeWorker(String(params.id || "")); } finally { store.close(); }
+    }
+    if (method === "cron.create") {
+      const name = String(params.name || "").trim();
+      const prompt = String(params.prompt || "").trim();
+      const expression = validateCron(String(params.expression || "").trim());
+      if (!name || !prompt) throw new Error("Job name and instructions are required.");
+      const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
+      if (!id) throw new Error("Job name must contain letters or numbers.");
+      const config = await readConfig(env); const store = await new Store(env, config).open();
+      try {
+        if (store.cronJobs().some((job) => job.id === id)) throw new Error("A cron job with that name already exists.");
+        const workerId = params.workerId ? String(params.workerId) : null;
+        if (workerId && !store.worker(workerId)) throw new Error("The selected subagent no longer exists.");
+        store.saveCronJob({ id, name, expression, prompt, workerId });
+        return true;
+      } finally { store.close(); }
+    }
+    if (method === "cron.setEnabled") {
+      const config = await readConfig(env); const store = await new Store(env, config).open();
+      try {
+        if (!store.setCronJobEnabled(String(params.id || ""), Boolean(params.enabled))) throw new Error("Cron job not found.");
+        return true;
+      } finally { store.close(); }
+    }
+    if (method === "cron.remove") {
+      const config = await readConfig(env); const store = await new Store(env, config).open();
+      try { return store.removeCronJob(String(params.id || "")); } finally { store.close(); }
     }
     throw new Error(`Unknown desktop method: ${method}`);
   }

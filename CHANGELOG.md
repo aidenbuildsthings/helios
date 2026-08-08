@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Desktop Cron Jobs management with schedule presets, custom five-field expressions, optional
+  subagent assignment, enable/disable controls, and removal through the existing local scheduler.
+
 ## [0.5.0] - 2026-08-08
 
 ### Added

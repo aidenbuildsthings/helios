@@ -6,6 +6,7 @@ const sections = [
   ["skills", "Skills", "▧"],
   ["tools", "Tools", "⌘"],
   ["capabilities", "Capabilities", "✦"],
+  ["cron", "Cron Jobs", "◷"],
   ["subagents", "Subagents", "⌘"],
   ["activity", "Activity", "≡"],
   ["settings", "Settings", "⚙"],
@@ -131,6 +132,7 @@ function render() {
     skills: renderSkills,
     tools: renderTools,
     capabilities: renderCapabilities,
+    cron: renderCron,
     subagents: renderSubagents,
     activity: renderActivity,
     settings: renderSettings,
@@ -316,6 +318,55 @@ function renderCapabilities() {
     await call("capability.remove", { id: button.dataset.id });
     await reload();
   });
+}
+
+function renderCron() {
+  const jobs = snapshot.jobs || [];
+  const workers = snapshot.workers || [];
+  const jobRows = jobs.map((job) => {
+    const worker = workers.find((item) => item.id === job.worker_id);
+    const lastRun = job.last_slot ? `LAST RUN ${relativeDate(`${job.last_slot}:00Z`)}` : "NOT RUN YET";
+    return `<article class="cron-card"><div class="cron-time"><b>${esc(job.expression)}</b><span>LOCAL TIME</span></div><div class="grow"><div class="row-title">${esc(job.name)}</div><div class="row-detail">${esc(job.prompt)}</div><div class="cron-meta">${esc(worker ? `SUBAGENT · ${worker.name}` : "HELIOS")} · ${esc(lastRun)}</div></div><button class="toggle ${job.enabled ? "on" : ""}" data-cron-toggle="${attr(job.id)}" aria-label="Toggle ${attr(job.name)}"></button><button class="icon-button remove-cron" data-id="${attr(job.id)}" aria-label="Remove ${attr(job.name)}">×</button></article>`;
+  }).join("");
+  main.innerHTML = `<div class="view cron-view">
+    ${title("Cron Jobs", "SCHEDULE RECURRING WORK THROUGH THE LOCAL HELIOS SERVICE", `<button id="new-cron" class="button primary">＋ NEW JOB</button>`)}
+    ${!snapshot.settings?.scheduler ? `<div class="notice">SCHEDULED JOBS ARE OFF. ENABLE THEM IN SETTINGS TO RUN ACTIVE JOBS.</div>` : ""}
+    ${panel("Schedule", jobRows || empty("No cron jobs yet. Create one to give Helios recurring work."), statusTag(`${jobs.filter((job) => job.enabled).length} ACTIVE`))}
+    ${panel("How schedules work", `<div class="panel-body">${kv("Every weekday at 9 AM", "0 9 * * 1-5")}${kv("Every day at 6 PM", "0 18 * * *")}${kv("Every hour", "0 * * * *")}<p class="helper-copy">Jobs use your Mac’s local time and run while the Helios background service is running. Scheduled actions stay in guarded mode.</p></div>`)}
+  </div>`;
+  document.querySelector("#new-cron").onclick = openCronDialog;
+  document.querySelectorAll("[data-cron-toggle]").forEach((button) => button.onclick = async () => {
+    const job = jobs.find((item) => item.id === button.dataset.cronToggle);
+    await call("cron.setEnabled", { id: job.id, enabled: !job.enabled }); await reload();
+  });
+  document.querySelectorAll(".remove-cron").forEach((button) => button.onclick = async () => {
+    if (!confirm("Remove this scheduled job?")) return;
+    await call("cron.remove", { id: button.dataset.id }); await reload();
+  });
+}
+
+function openCronDialog() {
+  const box = document.querySelector("#dialog");
+  const workers = snapshot.workers || [];
+  box.classList.remove("hidden");
+  box.innerHTML = `<section class="dialog"><header class="panel-head"><span class="panel-title">NEW CRON JOB</span><button id="close-dialog" class="icon-button" aria-label="Close">×</button></header><div class="dialog-content form-stack"><label>NAME<input id="cron-name" placeholder="Morning briefing" maxlength="80"></label><label>SCHEDULE<select id="cron-preset"><option value="0 9 * * 1-5">Weekdays at 9:00 AM</option><option value="0 9 * * *">Every day at 9:00 AM</option><option value="0 18 * * *">Every day at 6:00 PM</option><option value="0 * * * *">Every hour</option><option value="custom">Custom cron expression</option></select></label><label id="cron-custom-wrap" class="hidden">CRON EXPRESSION<input id="cron-expression" value="0 9 * * 1-5" spellcheck="false"><small>Minute · hour · day · month · weekday. Uses local time.</small></label><label>WHAT SHOULD HELIOS DO?<textarea id="cron-prompt" placeholder="Review today’s calendar and send me a concise morning briefing…" maxlength="4000"></textarea></label><label>RUN AS<select id="cron-worker"><option value="">Helios</option>${workers.map((worker) => `<option value="${attr(worker.id)}">${esc(worker.name)}</option>`).join("")}</select></label><div id="cron-error" class="form-error hidden"></div></div><footer class="dialog-actions"><button id="cancel-cron" class="button">CANCEL</button><button id="save-cron" class="button primary">CREATE JOB</button></footer></section>`;
+  const close = () => box.classList.add("hidden");
+  document.querySelector("#close-dialog").onclick = close; document.querySelector("#cancel-cron").onclick = close;
+  box.onclick = (event) => { if (event.target === box) close(); };
+  const preset = document.querySelector("#cron-preset");
+  preset.onchange = () => {
+    const custom = preset.value === "custom";
+    document.querySelector("#cron-custom-wrap").classList.toggle("hidden", !custom);
+    if (!custom) document.querySelector("#cron-expression").value = preset.value;
+  };
+  document.querySelector("#save-cron").onclick = async () => {
+    const errorBox = document.querySelector("#cron-error");
+    try {
+      await call("cron.create", { name: document.querySelector("#cron-name").value, expression: document.querySelector("#cron-expression").value, prompt: document.querySelector("#cron-prompt").value, workerId: document.querySelector("#cron-worker").value });
+      close(); await reload();
+    } catch (error) { errorBox.textContent = error.message; errorBox.classList.remove("hidden"); }
+  };
+  document.querySelector("#cron-name").focus();
 }
 
 function renderSubagents() {

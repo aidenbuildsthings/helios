@@ -42,6 +42,8 @@ test("persistent workers and cron jobs use the state database", async () => {
   assert.equal(store.worker("researcher").instructions, "Cite evidence.");
   assert.equal(store.worker("researcher").model, "claude-sonnet-4-6");
   assert.equal(store.cronJobs()[0].worker_id, "researcher");
+  assert.equal(store.setCronJobEnabled("daily", false), true);
+  assert.equal(store.cronJobs()[0].enabled, 0);
   store.saveSubagentTask({ id: "task-1", workerId: "researcher", title: "Research competitors", status: "running" });
   store.setSubagentTaskStatus("task-1", "done");
   assert.equal(store.subagentTasks()[0].status, "done");
