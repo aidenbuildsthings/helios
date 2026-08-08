@@ -1,0 +1,28 @@
+name: Desktop Release
+
+on:
+  push:
+    tags: ["desktop-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build universal macOS Desktop image
+        env:
+          HELIOS_DESKTOP_VERSION: ${{ github.ref_name }}
+        run: |
+          export HELIOS_DESKTOP_VERSION="${HELIOS_DESKTOP_VERSION#desktop-v}"
+          ./desktop/build.sh
+      - name: Create checksum and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#desktop-v}"
+          cd desktop/dist
+          shasum -a 256 *.dmg > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" *.dmg SHA256SUMS --repo "$GITHUB_REPOSITORY" --verify-tag --title "Helios Desktop $VERSION" --notes "Install and update this macOS app through \`helios desktop\`. The command verifies this release before installation." --latest=false

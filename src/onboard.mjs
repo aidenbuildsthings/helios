@@ -101,8 +101,16 @@ export async function onboard(ui, existing, env = process.env) {
     await writeSecret("HELIOS_BROWSER_TOKEN", crypto.randomBytes(32).toString("hex"));
   }
   await writeConfig(config, env);
-  ui.line(`\n✓ Helios is ready\n  Model: ${selected}/${model}\n  Memory: ${memory.backend}\n  Channels: ${Object.keys(channels).join(", ") || "none"}\n  Security: ${config.autonomy.mode}\n\nRun \`helios\`.\n`);
-  return config;
+  ui.line(`\n✓ Helios is ready\n  Model: ${selected}/${model}\n  Memory: ${memory.backend}\n  Channels: ${Object.keys(channels).join(", ") || "none"}\n  Security: ${config.autonomy.mode}\n`);
+  const hatch = await chooseHatch(ui);
+  if (!hatch) ui.line("\nRun `helios`.\n");
+  return { config, hatch };
+}
+
+export async function chooseHatch(ui, platform = process.platform) {
+  if (platform !== "darwin") return null;
+  const choice = await ui.choose("Hatch in", ["TUI (Terminal)", "Desktop app", "Don't hatch right now"]);
+  return ["tui", "desktop", null][choice];
 }
 
 async function localOllamaModels(fetchImpl = fetch) {

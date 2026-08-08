@@ -8,26 +8,10 @@ permissions:
   contents: write
 
 jobs:
-  desktop:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Build universal macOS Desktop image
-        run: ./desktop/build.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: helios-desktop
-          path: desktop/dist/*.dmg
-          if-no-files-found: error
   release:
-    needs: desktop
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v4
-        with:
-          name: helios-desktop
-          path: desktop-release
       - name: Build versioned archive and checksums
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -36,11 +20,10 @@ jobs:
           printf '{"version":"%s","commit":"%s"}\n' "$VERSION" "$GITHUB_SHA" > "release-root/helios-$VERSION/build.json"
           tar -czf "helios-$VERSION.tar.gz" -C release-root "helios-$VERSION"
           (cd release-root && zip -qr "../helios-$VERSION.zip" "helios-$VERSION")
-          sha256sum install.sh install.ps1 "helios-$VERSION.tar.gz" "helios-$VERSION.zip" desktop-release/*.dmg > SHA256SUMS
-          sed -i 's#desktop-release/##g' SHA256SUMS
+          sha256sum install.sh install.ps1 "helios-$VERSION.tar.gz" "helios-$VERSION.zip" > SHA256SUMS
       - name: Extract version notes from changelog
         run: awk -v version="${GITHUB_REF_NAME#v}" '$0 == "## [" version "]" || index($0, "## [" version "] -") == 1 {copy=1; next} copy && /^## \[/ {exit} copy {print}' CHANGELOG.md > RELEASE_NOTES.md
       - name: Publish release assets and visible notes
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" install.sh install.ps1 "helios-${GITHUB_REF_NAME#v}.tar.gz" "helios-${GITHUB_REF_NAME#v}.zip" desktop-release/*.dmg SHA256SUMS --verify-tag --notes-file RELEASE_NOTES.md --title "Helios $GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" install.sh install.ps1 "helios-${GITHUB_REF_NAME#v}.tar.gz" "helios-${GITHUB_REF_NAME#v}.zip" SHA256SUMS --verify-tag --notes-file RELEASE_NOTES.md --title "Helios $GITHUB_REF_NAME" --latest

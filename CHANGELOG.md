@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.5.0] - 2026-08-08
 
 ### Added
 
@@ -15,6 +15,12 @@
 - `helios subagent` interactive profile creation and checksum-verified, on-demand installation
   through `helios desktop`.
 - Universal Intel and Apple Silicon Desktop DMGs in tagged GitHub releases.
+- A macOS-only onboarding hatch choice for Terminal, Desktop, or finishing without launching.
+
+### Changed
+
+- Agent and Desktop releases now have independent versions and update paths. `helios update`
+  updates only the agent; `helios desktop` checks, updates, and opens only the app.
 
 All notable Helios changes are recorded here and repeated in the corresponding GitHub release.
 

@@ -13,7 +13,7 @@ test("update verifies the installer before running it", async () => {
   const installer = "#!/bin/bash\nexit 0\n"; const digest = crypto.createHash("sha256").update(installer).digest("hex"); const requested = [];
   const fetchImpl = async (url) => {
     requested.push(String(url));
-    if (String(url).endsWith("/releases/latest")) return new Response(JSON.stringify({ tag_name: "v9.9.9", html_url: "https://example.test/release" }));
+    if (String(url).includes("/releases?")) return new Response(JSON.stringify([{ tag_name: "desktop-v99.0.0" }, { tag_name: "v9.9.9", html_url: "https://example.test/release" }]));
     if (String(url).endsWith("/install.sh")) return new Response(installer);
     return new Response(`${digest}  install.sh\n`);
   };
@@ -27,16 +27,16 @@ test("update verifies the installer before running it", async () => {
 });
 
 test("update refuses a checksum mismatch", async () => {
-  const fetchImpl = async (url) => String(url).endsWith("/releases/latest")
-    ? new Response(JSON.stringify({ tag_name: "v9.9.9", html_url: "https://example.test/release" }))
+  const fetchImpl = async (url) => String(url).includes("/releases?")
+    ? new Response(JSON.stringify([{ tag_name: "v9.9.9", html_url: "https://example.test/release" }]))
     : String(url).endsWith("/install.sh") ? new Response("installer") : new Response(`${"0".repeat(64)}  install.sh\n`);
   await assert.rejects(() => installLatestUpdate({ fetchImpl, platform: "linux" }), /SHA-256/);
 });
 
 test("Windows update verifies and runs the PowerShell installer", async () => {
   const installer = "Write-Host 'ready'\n"; const digest = crypto.createHash("sha256").update(installer).digest("hex");
-  const fetchImpl = async (url) => String(url).endsWith("/releases/latest")
-    ? new Response(JSON.stringify({ tag_name: "v9.9.9", html_url: "https://example.test/release" }))
+  const fetchImpl = async (url) => String(url).includes("/releases?")
+    ? new Response(JSON.stringify([{ tag_name: "v9.9.9", html_url: "https://example.test/release" }]))
     : String(url).endsWith("/install.ps1") ? new Response(installer) : new Response(`${digest}  install.ps1\n`);
   let spawned;
   const spawnImpl = (command, args, options) => { spawned = { command, args, options }; const child = new EventEmitter(); queueMicrotask(() => child.emit("exit", 0, null)); return child; };

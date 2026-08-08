@@ -4,7 +4,7 @@ import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-const RELEASE_API = "https://api.github.com/repos/aidenbuildsthings/helios/releases/latest";
+const RELEASES_API = "https://api.github.com/repos/aidenbuildsthings/helios/releases?per_page=30";
 
 export async function currentVersion() {
   return JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -18,10 +18,12 @@ export function compareVersions(left, right) {
 
 export async function checkForUpdate(fetchImpl = fetch) {
   const installed = await currentVersion();
-  const response = await fetchImpl(RELEASE_API, { headers: { accept: "application/vnd.github+json", "user-agent": `helios/${installed}` }, signal: AbortSignal.timeout(10_000) });
+  const response = await fetchImpl(RELEASES_API, { headers: { accept: "application/vnd.github+json", "user-agent": `helios/${installed}` }, signal: AbortSignal.timeout(10_000) });
   if (!response.ok) throw new Error(`Update check failed: ${response.status}.`);
-  const release = await response.json(); const latest = String(release.tag_name || "").replace(/^v/, "");
-  if (!/^\d+\.\d+\.\d+$/.test(latest)) throw new Error("GitHub returned an invalid Helios release version.");
+  const releases = await response.json();
+  const release = Array.isArray(releases) ? releases.find((item) => /^v\d+\.\d+\.\d+$/.test(item.tag_name) && !item.draft && !item.prerelease) : null;
+  if (!release) throw new Error("GitHub did not return a stable Helios agent release.");
+  const latest = release.tag_name.slice(1);
   return { installed, latest, available: compareVersions(latest, installed) > 0, url: release.html_url };
 }
 

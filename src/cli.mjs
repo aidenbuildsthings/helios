@@ -91,7 +91,7 @@ async function main() {
 
   helios                                 Start a conversation
   helios onboard                         Configure Helios
-  helios update                          Install the latest verified release
+  helios update                          Update only the Helios agent
   helios uninstall [--purge]            Remove Helios; optionally remove user data
   helios doctor                          Full installation diagnostics
   helios ping                            Quick background-service liveness check
@@ -107,10 +107,19 @@ async function main() {
   helios subagent list|remove            Manage persistent subagents
   helios cron                            Manage scheduled prompts
   helios autonomy [on|off|status]        Control autonomous execution
-  helios desktop                         Open the optional macOS app
+  helios desktop                         Update/open only the macOS app
   helios help                            Show this command list
 `);
-  } else if (command === "onboard") await onboard(ui, await readConfig());
+  } else if (command === "onboard") {
+    const result = await onboard(ui, await readConfig());
+    if (result.hatch === "tui") await chat();
+    else if (result.hatch === "desktop") {
+      ui.line("Fetching the latest verified Helios Desktop release…");
+      const desktop = await openDesktop({ cliPath: fileURLToPath(import.meta.url) });
+      if (desktop.installed) ui.line(`Installed Helios Desktop ${desktop.version}.`);
+      else if (desktop.updated) ui.line(`Updated Helios Desktop to ${desktop.version}.`);
+    }
+  }
   else if (command === "update") {
     ui.line("Checking for a verified Helios release…");
     const result = await installLatestUpdate();
@@ -252,9 +261,11 @@ async function main() {
     bridge.stop();
   } else if (command === "desktop-bridge") await runDesktopBridge({ cliPath: fileURLToPath(import.meta.url) });
   else if (command === "desktop") {
-    ui.line("Opening Helios Desktop…");
+    ui.line("Checking for the latest verified Helios Desktop release…");
     const result = await openDesktop({ cliPath: fileURLToPath(import.meta.url) });
-    if (result.installed) ui.line(`Installed Helios Desktop in ${result.app}.`);
+    if (result.installed) ui.line(`Installed Helios Desktop ${result.version} in ${result.app}.`);
+    else if (result.updated) ui.line(`Updated Helios Desktop to ${result.version}.`);
+    else if (result.updateCheckFailed) ui.line(`Could not check for a Desktop update; opened installed version ${result.version}.`);
   } else if (command === "service") await service();
   else if (command === "chat" || command === "tui" || command === "--session") await chat();
   else throw new Error(`Unknown command: ${command}. Run \`helios --help\`.`);

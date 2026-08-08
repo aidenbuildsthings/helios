@@ -4,7 +4,7 @@ import { mkdir, mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { openDesktop, verifyDesktopChecksum } from "../src/desktop.mjs";
+import { openDesktop, selectDesktopRelease, verifyDesktopChecksum } from "../src/desktop.mjs";
 
 test("desktop release checksum is mandatory and exact", () => {
   const bytes = Buffer.from("verified desktop");
@@ -19,6 +19,11 @@ test("desktop command opens a source build without downloading", async () => {
   await mkdir(path.dirname(cliPath), { recursive: true }); await mkdir(app, { recursive: true });
   const calls = [];
   const result = await openDesktop({ cliPath, platform: "darwin", fetchImpl: () => { throw new Error("unexpected download"); }, execImpl: async (...args) => calls.push(args) });
-  assert.deepEqual(result, { app, installed: false });
+  assert.deepEqual(result, { app, installed: false, updated: false, version: "0.0.0" });
   assert.deepEqual(calls, [["/usr/bin/open", [app]]]);
+});
+
+test("desktop update selection ignores agent releases", () => {
+  const release = selectDesktopRelease([{ tag_name: "v99.0.0" }, { tag_name: "desktop-v1.2.3", draft: false, prerelease: false }]);
+  assert.equal(release.version, "1.2.3");
 });

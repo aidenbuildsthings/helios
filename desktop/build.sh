@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-VERSION="$(node -p "require('$ROOT/../package.json').version")"
+VERSION="${HELIOS_DESKTOP_VERSION:-$(node -p "require('$ROOT/version.json').version")}"
 ARCH="universal"
 OUT="$ROOT/dist"
 STAGING="$(mktemp -d "${TMPDIR:-/tmp}/helios-desktop.XXXXXX")"

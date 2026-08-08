@@ -30,6 +30,11 @@ helios doctor   # diagnose configuration and runtime problems
 helios restart  # restart the background Helios service
 ```
 
+Agent and Desktop updates are independent. `helios update` changes only the command-line agent.
+On macOS, `helios desktop` checks for a newer verified app release, updates it when needed, and
+opens it. Desktop DMGs are distributed as implementation assets for that command; direct manual
+installation is not a supported update path.
+
 Run persistent channels, scheduled jobs, update checks, and browser control in the background:
 
 ```sh
@@ -57,7 +62,7 @@ Desktop uses the existing local configuration, Keychain credentials, SQLite sess
 skills, channels, tools, and learned capabilities through a private subprocess bridge. It opens
 no network port and does not copy provider credentials into the app.
 
-Install or open the latest checksum-verified Desktop release on macOS:
+Install, update, or open the latest checksum-verified Desktop release on macOS:
 
 ~~~sh
 helios desktop
