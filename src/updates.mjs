@@ -32,21 +32,23 @@ async function boundedText(response, maxBytes = 1_000_000) {
 }
 
 export async function installLatestUpdate({ fetchImpl = fetch, spawnImpl = spawn, env = process.env, platform = process.platform } = {}) {
-  if (platform === "win32") throw new Error("Automatic update is not available on Windows yet. Download the latest release from GitHub.");
   const status = await checkForUpdate(fetchImpl);
   if (!status.available) return { ...status, updated: false };
   const root = `https://github.com/aidenbuildsthings/helios/releases/download/v${status.latest}`;
   const request = (url) => fetchImpl(url, { headers: { "user-agent": `helios/${status.installed}` }, signal: AbortSignal.timeout(20_000) });
-  const [installer, sums] = await Promise.all([boundedText(await request(`${root}/install.sh`)), boundedText(await request(`${root}/SHA256SUMS`))]);
-  const expected = sums.split("\n").map((line) => line.trim().split(/\s+/)).find(([, name]) => name === "install.sh")?.[0];
-  if (!/^[a-f0-9]{64}$/i.test(expected || "")) throw new Error("Release checksum manifest does not contain install.sh.");
+  const installerName = platform === "win32" ? "install.ps1" : "install.sh";
+  const [installer, sums] = await Promise.all([boundedText(await request(`${root}/${installerName}`)), boundedText(await request(`${root}/SHA256SUMS`))]);
+  const expected = sums.split("\n").map((line) => line.trim().split(/\s+/)).find(([, name]) => name === installerName)?.[0];
+  if (!/^[a-f0-9]{64}$/i.test(expected || "")) throw new Error(`Release checksum manifest does not contain ${installerName}.`);
   const actual = crypto.createHash("sha256").update(installer).digest("hex");
   if (actual !== expected.toLowerCase()) throw new Error("Downloaded installer failed SHA-256 verification.");
-  const directory = await mkdtemp(path.join(os.tmpdir(), "helios-update-")); const file = path.join(directory, "install.sh");
+  const directory = await mkdtemp(path.join(os.tmpdir(), "helios-update-")); const file = path.join(directory, installerName);
   try {
-    await writeFile(file, installer, { mode: 0o700 }); await chmod(file, 0o700);
+    await writeFile(file, installer, { mode: 0o700 }); if (platform !== "win32") await chmod(file, 0o700);
     const code = await new Promise((resolve, reject) => {
-      const child = spawnImpl("/bin/bash", [file], { env: { ...env, HELIOS_VERSION: status.latest }, stdio: "inherit" });
+      const command = platform === "win32" ? "powershell.exe" : "/bin/bash";
+      const args = platform === "win32" ? ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", file] : [file];
+      const child = spawnImpl(command, args, { env: { ...env, HELIOS_VERSION: status.latest }, stdio: "inherit" });
       child.once("error", reject); child.once("exit", (value, signal) => signal ? reject(new Error(`Installer stopped by ${signal}.`)) : resolve(value ?? 1));
     });
     if (code !== 0) throw new Error(`Installer failed with exit code ${code}.`);

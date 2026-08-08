@@ -42,6 +42,9 @@ export class Store {
         id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, source TEXT NOT NULL,
         sha256 TEXT NOT NULL, content TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, installed_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS secrets (
+        name TEXT PRIMARY KEY, encrypted_value TEXT NOT NULL
+      );
     `);
     await this.memoryStore.initialize();
     return this;

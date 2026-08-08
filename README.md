@@ -1,17 +1,23 @@
 # Helios Agent
 
-Install Helios with one command:
+Install Helios on macOS or Linux:
 
 ```sh
-curl -fsSL https://github.com/aidenbuildsthings/helios/releases/latest/download/install.sh | bash
+curl -fsSL https://helios.scriptspace.xyz/install.sh | bash
+```
+
+Install Helios on Windows from PowerShell:
+
+```powershell
+powershell -c "irm https://helios.scriptspace.xyz/install.ps1 | iex"
 ```
 
 Then run `helios onboard`.
 
 Installation creates three locations:
 
-- `~/.local/share/helios/` — versioned application files
-- `~/.local/bin/helios` — command symlink
+- `~/.local/share/helios/` and `~/.local/bin/helios` on macOS/Linux
+- `%LOCALAPPDATA%\Helios` and its `bin\helios.cmd` shim on Windows
 - `~/.helios/` — private configuration, memory, sessions, skills, and logs
 
 The installer creates `~/.helios/` with owner-only permissions and never overwrites its contents during updates.
@@ -129,7 +135,9 @@ system permissions with:
 helios computer status
 ```
 
-macOS requires Accessibility and Screen Recording access for the terminal running Helios.
+macOS requires Accessibility and Screen Recording access for the terminal running Helios. The bundled xa11y runtime also ships native Windows and Linux builds.
+
+On Linux desktops, install `libsecret-tools` to let onboarding store credentials in the system Secret Service. Headless Linux/VPS deployments can provide the same secret names through the service environment. Windows secrets are encrypted for the current user with DPAPI; macOS continues to use Keychain.
 
 ## Autonomy
 

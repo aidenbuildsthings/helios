@@ -98,7 +98,6 @@ export async function onboard(ui, existing, env = process.env) {
   if (oauth) await writeSecret("OPENAI_CODEX_AUTH", JSON.stringify(oauth));
   for (const [name, value] of channelSecrets) if (!env[name]) await writeSecret(name, value);
   if (config.browser.enabled && !(await readSecret("HELIOS_BROWSER_TOKEN", env))) {
-    if (process.platform !== "darwin") throw new Error("Set HELIOS_BROWSER_TOKEN to a random 64-character value in the service environment before enabling browser control.");
     await writeSecret("HELIOS_BROWSER_TOKEN", crypto.randomBytes(32).toString("hex"));
   }
   await writeConfig(config, env);

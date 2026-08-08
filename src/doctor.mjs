@@ -23,7 +23,7 @@ export async function runDoctor({ env = process.env, platform = process.platform
   else {
     results.push(result("pass", "Provider", `${config.provider}/${config.model || PROVIDERS[config.provider].defaultModel}`));
     const metadata = PROVIDERS[config.provider];
-    if (metadata.credential && !(await readSecretImpl(metadata.credential, env))) results.push(result("fail", "Provider credentials", `${metadata.credential} is missing.`, platform === "darwin" ? "Run `helios onboard`." : `Set ${metadata.credential} in the service environment.`));
+    if (metadata.credential && !(await readSecretImpl(metadata.credential, env))) results.push(result("fail", "Provider credentials", `${metadata.credential} is missing.`, "Run `helios onboard` or provide it in the Helios service environment."));
     else if (config.provider === "openai-codex") {
       const raw = await readSecretImpl("OPENAI_CODEX_AUTH", env);
       try { if (!JSON.parse(raw || "null")?.access) throw new Error(); results.push(result("pass", "ChatGPT sign-in", "OAuth credentials are present.")); }
@@ -31,7 +31,7 @@ export async function runDoctor({ env = process.env, platform = process.platform
     } else if (metadata.credential) results.push(result("pass", "Provider credentials", `${metadata.credential} is available.`));
   }
   if (Object.keys(config.credentials || {}).length) results.push(result("fail", "Secret storage", "Plaintext credentials remain in config.json.", "Run `helios onboard` to migrate them to Keychain or environment variables."));
-  else results.push(result("pass", "Secret storage", platform === "darwin" ? "No plaintext credentials; macOS Keychain is enabled." : "No plaintext credentials; service environment is required."));
+  else results.push(result("pass", "Secret storage", platform === "darwin" ? "No plaintext credentials; macOS Keychain is enabled." : platform === "win32" ? "No plaintext credentials; Windows DPAPI protection is enabled." : "No plaintext credentials; Linux Secret Service or the service environment is enabled."));
   if (config.browser.enabled) {
     const token = await readSecretImpl("HELIOS_BROWSER_TOKEN", env);
     if (!token) results.push(result("fail", "Browser tool", "HELIOS_BROWSER_TOKEN is missing.", "Run `helios tools enable browser`."));
@@ -49,7 +49,7 @@ export async function runDoctor({ env = process.env, platform = process.platform
     const keys = id === "slack" ? ["botToken", "appToken"] : ["token"];
     for (const key of keys) {
       const name = `HELIOS_${id}_${key}`.toUpperCase();
-      results.push(await readSecretImpl(name, env) ? result("pass", `${id} credentials`, `${key} is available.`) : result("fail", `${id} credentials`, `${name} is missing.`, platform === "darwin" ? "Run `helios onboard`." : `Set ${name} in the service environment.`));
+      results.push(await readSecretImpl(name, env) ? result("pass", `${id} credentials`, `${key} is available.`) : result("fail", `${id} credentials`, `${name} is missing.`, "Run `helios onboard` or provide it in the Helios service environment."));
     }
   }
   try {

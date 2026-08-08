@@ -27,11 +27,12 @@ export async function registerRuntime({ cliPath, env = process.env, pid = proces
   return { record, release: async () => { const current = await readRuntime(env).catch(() => null); if (current?.pid === pid) await rm(locations.runtime, { force: true }); } };
 }
 
-export async function verifyRuntimeOwner(record, execImpl = execFileAsync) {
+export async function verifyRuntimeOwner(record, execImpl = execFileAsync, platform = process.platform) {
   if (!record || !processExists(record.pid)) return false;
-  if (process.platform === "win32") return false;
   try {
-    const { stdout } = await execImpl("/bin/ps", ["-p", String(record.pid), "-o", "command="]);
+    const { stdout } = platform === "win32"
+      ? await execImpl("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `(Get-CimInstance Win32_Process -Filter 'ProcessId = ${record.pid}').CommandLine`])
+      : await execImpl("/bin/ps", ["-p", String(record.pid), "-o", "command="]);
     const command = stdout.trim();
     return Boolean(command && (command.includes(record.cliPath) || (command.includes("helios") && command.includes("node"))));
   } catch { return false; }
@@ -73,7 +74,6 @@ export async function stopHelios({ cliPath, env = process.env, readRuntimeImpl =
 }
 
 export async function startHelios({ cliPath, env = process.env, spawnImpl = spawn } = {}) {
-  if (process.platform === "win32") throw new Error("Background process control is not available on Windows yet. Run `helios` in a terminal.");
   const current = await readRuntime(env);
   if (current && await verifyRuntimeOwner(current)) return { started: false, pid: current.pid };
   await rm(paths(env).runtime, { force: true });

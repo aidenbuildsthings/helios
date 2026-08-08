@@ -87,7 +87,6 @@ export async function manageTools(ui, args, env = process.env) {
   if (!Object.hasOwn(items, id) || !["enable", "disable"].includes(action)) throw new Error("Usage: helios tools [list|enable <browser|computer>|disable <browser|computer>]");
   const enabled = action === "enable";
   if (id === "browser" && enabled && !(await readSecret("HELIOS_BROWSER_TOKEN", env))) {
-    if (process.platform !== "darwin") throw new Error("Set HELIOS_BROWSER_TOKEN to a random 64-character value in the service environment, then retry.");
     await writeSecret("HELIOS_BROWSER_TOKEN", crypto.randomBytes(32).toString("hex"));
   }
   await writeConfig({ ...config, [id]: { ...config[id], enabled } }, env);
@@ -101,12 +100,12 @@ export async function buildInfo(cliPath = fileURLToPath(import.meta.url)) {
   return { version: build.version || pkg.version, commit: build.commit || "source checkout", installedAt: build.installedAt || "not installed" };
 }
 
-export async function uninstallHelios({ cliPath, purge = false, env = process.env }) {
+export async function uninstallHelios({ cliPath, purge = false, env = process.env, platform = process.platform }) {
   const resolvedCli = await realpath(cliPath); const versionDir = path.dirname(path.dirname(resolvedCli)); const installRoot = path.dirname(versionDir);
-  const configuredRoot = path.resolve(env.HELIOS_INSTALL_DIR || path.join(os.homedir(), ".local", "share", "helios"));
+  const configuredRoot = path.resolve(env.HELIOS_INSTALL_DIR || (platform === "win32" ? path.join(env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "Helios") : path.join(os.homedir(), ".local", "share", "helios")));
   const expectedRoot = await realpath(configuredRoot).catch(() => configuredRoot);
   if (installRoot !== expectedRoot || !/^\d+\.\d+\.\d+-\d{14}$/.test(path.basename(versionDir))) throw new Error("Refusing to uninstall a source checkout or unrecognized installation path.");
-  const bin = path.resolve(env.HELIOS_BIN_DIR || path.join(os.homedir(), ".local", "bin"), "helios");
+  const bin = path.resolve(env.HELIOS_BIN_DIR || (platform === "win32" ? path.join(configuredRoot, "bin") : path.join(os.homedir(), ".local", "bin")), platform === "win32" ? "helios.cmd" : "helios");
   await unlink(bin).catch((error) => { if (error?.code !== "ENOENT") throw error; });
   await rm(expectedRoot, { recursive: true, force: true });
   if (purge) {
