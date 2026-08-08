@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { Store } from "../src/store.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -21,4 +22,24 @@ test("desktop bridge returns real empty state without exposing credentials", asy
   assert.equal(response.result.agent.provider, null);
   assert.deepEqual(response.result.sessions, []);
   assert.equal(JSON.stringify(response).includes("credentials"), false);
+});
+
+test("desktop bridge returns persisted messages for the selected chat session", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "helios-desktop-chat-"));
+  const env = { ...process.env, HELIOS_HOME: home };
+  const store = await new Store(env, {}).open();
+  const saved = { role: "assistant", content: "Persisted Helios response" };
+  store.append("desktop-session", { role: "user", content: "Saved question" });
+  store.append("desktop-session", saved);
+  store.close();
+
+  const child = spawn(process.execPath, [path.join(root, "src", "cli.mjs"), "desktop-bridge"], {
+    env, stdio: ["pipe", "pipe", "pipe"],
+  });
+  child.stdin.end('{"id":2,"method":"session.messages","params":{"sessionId":"desktop-session"}}\n');
+  let output = "";
+  for await (const chunk of child.stdout) output += chunk;
+  const response = JSON.parse(output.trim());
+  assert.equal(response.id, 2);
+  assert.deepEqual(response.result.at(-1), saved);
 });
