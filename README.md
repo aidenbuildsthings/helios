@@ -62,6 +62,10 @@ Desktop uses the existing local configuration, Keychain credentials, SQLite sess
 skills, channels, tools, and learned capabilities through a private subprocess bridge. It opens
 no network port and does not copy provider credentials into the app.
 
+The Desktop app can verify and switch models, securely connect or disconnect messaging channels,
+manage cron jobs, run a job immediately, inspect its output history, and notify you of failures.
+Its private bridge reconnects automatically if the local subprocess exits.
+
 Install, update, or open the latest checksum-verified Desktop release on macOS:
 
 ~~~sh
@@ -116,6 +120,7 @@ helios tools disable computer
 helios subagent                    # create a persistent specialist
 helios subagent list
 helios subagent remove <id>
+helios cron                         # manage recurring work (also available in Desktop)
 helios version
 helios help
 ```

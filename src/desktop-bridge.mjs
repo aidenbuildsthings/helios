@@ -7,9 +7,11 @@ import { CHANNELS } from "./channels/index.mjs";
 import { readConfig, writeConfig } from "./config.mjs";
 import { buildInfo } from "./management.mjs";
 import { paths } from "./paths.mjs";
-import { PROVIDERS } from "./providers/index.mjs";
-import { readRuntime, verifyRuntimeOwner } from "./runtime.mjs";
-import { validateCron } from "./scheduler.mjs";
+import { createProvider, PROVIDERS } from "./providers/index.mjs";
+import { loginOpenAI } from "./auth/openai-oauth.mjs";
+import { deleteSecret, readSecret, writeSecret } from "./secrets.mjs";
+import { readRuntime, restartHelios, verifyRuntimeOwner } from "./runtime.mjs";
+import { runCronJob, validateCron } from "./scheduler.mjs";
 import { Store } from "./store.mjs";
 
 const MAX_LINE_BYTES = 1_000_000;
@@ -19,6 +21,7 @@ export async function runDesktopBridge({ input = process.stdin, output = process
   const approvals = new Map();
   const write = (message) => output.write(`${JSON.stringify(message)}\n`);
   const event = (name, payload = {}) => write({ event: name, ...payload });
+  const resetSessions = () => { for (const app of sessions.values()) app.store.close(); sessions.clear(); };
 
   async function snapshot() {
     const config = await readConfig(env);
@@ -36,8 +39,8 @@ export async function runDesktopBridge({ input = process.stdin, output = process
         },
         preferences: config.desktop,
         settings: { updates: Boolean(config.updates.enabled), scheduler: Boolean(config.scheduler.enabled) },
-        providers: Object.entries(PROVIDERS).map(([id, value]) => ({ id, label: value.label, defaultModel: value.defaultModel, active: id === config.provider })),
-        channels: Object.entries(CHANNELS).map(([id, value]) => ({ id, name: value.label, connected: Boolean(config.channels?.[id]?.enabled), allowedSenders: config.channels?.[id]?.allowedSenders || [] })),
+        providers: Object.entries(PROVIDERS).map(([id, value]) => ({ id, label: value.label, defaultModel: value.defaultModel, credential: value.credential || null, active: id === config.provider })),
+        channels: Object.entries(CHANNELS).map(([id, value]) => ({ id, name: value.label, fields: value.fields, connected: Boolean(config.channels?.[id]?.enabled), allowedSenders: config.channels?.[id]?.allowedSenders || [] })),
         tools: [
           { id: "computer", name: "Computer use", enabled: Boolean(config.computer.enabled), description: "Native macOS accessibility control through xa11y." },
           { id: "browser", name: "Browser", enabled: Boolean(config.browser.enabled), description: "Local browser-extension bridge." },
@@ -45,7 +48,7 @@ export async function runDesktopBridge({ input = process.stdin, output = process
           { id: "learning", name: "Self-improvement", enabled: Boolean(config.learning.enabled), description: "Approved reusable capability learning." },
           { id: "workers", name: "Subagents", enabled: Boolean(config.workers.enabled), description: "Persistent purpose-built delegated agents." },
         ],
-        sessions: store.sessions(100), skills: store.skills(), workers: store.workers(), subagentTasks: store.subagentTasks(), jobs: store.cronJobs(),
+        sessions: store.sessions(100), skills: store.skills(), workers: store.workers(), subagentTasks: store.subagentTasks(), jobs: store.cronJobs(), cronRuns: store.cronRuns(),
         capabilities: await capabilities.list(),
       };
     } finally { store.close(); }
@@ -75,7 +78,15 @@ export async function runDesktopBridge({ input = process.stdin, output = process
       const store = await new Store(env, config).open();
       try { return store.messages(params.sessionId); } finally { store.close(); }
     }
-    if (method === "chat.send") return (await getSession(params.sessionId)).agent.send(String(params.text || ""));
+    if (method === "chat.send") {
+      const answer = await (await getSession(params.sessionId)).agent.send(String(params.text || ""));
+      const chunks = String(answer).match(/[\s\S]{1,80}/g) || [];
+      for (const chunk of chunks) {
+        event("chat.delta", { sessionId: params.sessionId, delta: chunk });
+        await new Promise((resolve) => setTimeout(resolve, 8));
+      }
+      return answer;
+    }
     if (method === "approval.respond") {
       const resolve = approvals.get(params.approvalId);
       if (!resolve) return false;
@@ -89,7 +100,57 @@ export async function runDesktopBridge({ input = process.stdin, output = process
       const config = await readConfig(env);
       const [section, key] = params.key.split(".");
       await writeConfig({ ...config, [section]: { ...config[section], [key]: params.value } }, env);
+      if (["autonomy", "computer", "browser", "skills", "learning", "workers"].includes(section)) resetSessions();
       return snapshot();
+    }
+    if (method === "provider.set") {
+      const id = String(params.provider || ""); const metadata = PROVIDERS[id];
+      if (!metadata) throw new Error("Unknown model provider.");
+      const model = String(params.model || metadata.defaultModel).trim() || metadata.defaultModel;
+      let apiKey = metadata.credential ? String(params.apiKey || "").trim() || await readSecret(metadata.credential, env) : null;
+      let auth = null;
+      if (id === "openai-codex") {
+        event("oauth.opening", { provider: id });
+        auth = await loginOpenAI((url) => event("oauth.url", { provider: id, url }));
+      } else if (metadata.credential && !apiKey) throw new Error(`${metadata.label} requires an API key.`);
+      const provider = createProvider({ id, apiKey, auth, model });
+      const check = await provider.complete({ system: "Reply with READY only.", messages: [{ role: "user", content: "Connection test" }], tools: [] });
+      if (!check.text?.trim()) throw new Error("Model verification returned an empty response. Your current model was not changed.");
+      if (metadata.credential && params.apiKey && !env[metadata.credential]) await writeSecret(metadata.credential, apiKey, env);
+      if (auth) await writeSecret("OPENAI_CODEX_AUTH", JSON.stringify(auth), env);
+      const config = await readConfig(env);
+      await writeConfig({ ...config, provider: id, model }, env);
+      resetSessions();
+      return snapshot();
+    }
+    if (method === "channel.connect") {
+      const id = String(params.channel || ""); const metadata = CHANNELS[id];
+      if (!metadata) throw new Error("Unknown channel.");
+      const allowedSenders = String(params.allowedSenders || "").split(",").map((value) => value.trim()).filter(Boolean);
+      if (!allowedSenders.length) throw new Error("Add at least one allowed sender ID.");
+      const secrets = [];
+      for (const field of metadata.fields) {
+        const secretName = `HELIOS_${id}_${field.key}`.toUpperCase();
+        const value = String(params.secrets?.[field.key] || "").trim() || await readSecret(secretName, env);
+        if (!value) throw new Error(`${metadata.label} ${field.label} is required.`);
+        if (!env[secretName] && params.secrets?.[field.key]) secrets.push([secretName, value]);
+      }
+      for (const [name, value] of secrets) await writeSecret(name, value, env);
+      const config = await readConfig(env);
+      await writeConfig({ ...config, channels: { ...config.channels, [id]: { enabled: true, allowedSenders } } }, env);
+      return snapshot();
+    }
+    if (method === "channel.disconnect") {
+      const id = String(params.channel || ""); const metadata = CHANNELS[id];
+      if (!metadata) throw new Error("Unknown channel.");
+      const config = await readConfig(env); const channels = { ...config.channels }; delete channels[id];
+      await writeConfig({ ...config, channels }, env);
+      for (const field of metadata.fields) await deleteSecret(`HELIOS_${id}_${field.key}`.toUpperCase(), env).catch(() => {});
+      return snapshot();
+    }
+    if (method === "service.restart") {
+      const result = await restartHelios({ cliPath, env });
+      return { pid: result.pid };
     }
     if (method === "skill.remove") {
       const config = await readConfig(env);
@@ -135,6 +196,16 @@ export async function runDesktopBridge({ input = process.stdin, output = process
     if (method === "cron.remove") {
       const config = await readConfig(env); const store = await new Store(env, config).open();
       try { return store.removeCronJob(String(params.id || "")); } finally { store.close(); }
+    }
+    if (method === "cron.run") {
+      const jobId = String(params.id || "");
+      event("cron.started", { jobId });
+      try {
+        const result = await runCronJob({ jobId, ui: { status: (status) => event("status", { sessionId: `cron:${jobId}`, status }), toolStart: (call) => event("tool.start", { sessionId: `cron:${jobId}`, call }), toolEnd: (call, output) => event("tool.end", { sessionId: `cron:${jobId}`, call, result: String(output).slice(0, 20_000) }) }, env });
+        if (!result) throw new Error("This cron job is paused or no longer exists.");
+        event("cron.finished", { jobId, status: result.status });
+        return result;
+      } catch (error) { event("cron.finished", { jobId, status: "failed", message: error.message }); throw error; }
     }
     throw new Error(`Unknown desktop method: ${method}`);
   }

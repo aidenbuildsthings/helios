@@ -42,6 +42,12 @@ export class Store {
         worker_id TEXT REFERENCES workers(id) ON DELETE SET NULL, enabled INTEGER NOT NULL DEFAULT 1,
         last_slot TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS cron_runs (
+        id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES cron_jobs(id) ON DELETE CASCADE,
+        scheduled_slot TEXT NOT NULL, status TEXT NOT NULL, result TEXT, error TEXT,
+        started_at TEXT NOT NULL, finished_at TEXT
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS cron_runs_job_slot ON cron_runs(job_id, scheduled_slot);
       CREATE TABLE IF NOT EXISTS skills (
         id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, source TEXT NOT NULL,
         sha256 TEXT NOT NULL, content TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, installed_at TEXT NOT NULL
@@ -96,6 +102,7 @@ export class Store {
   }
   setSubagentTaskStatus(id, status) { return this.db.prepare("UPDATE subagent_tasks SET status=?,updated_at=? WHERE id=?").run(status, new Date().toISOString(), id).changes > 0; }
   cronJobs() { return this.db.prepare("SELECT * FROM cron_jobs ORDER BY name").all(); }
+  cronJob(id) { return this.db.prepare("SELECT * FROM cron_jobs WHERE id=?").get(id) || null; }
   saveCronJob({ id, name, expression, prompt, workerId = null }) {
     const now = new Date().toISOString();
     this.db.prepare("INSERT INTO cron_jobs(id,name,expression,prompt,worker_id,enabled,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?)").run(id, name, expression, prompt, workerId, now, now);
@@ -104,7 +111,32 @@ export class Store {
     return this.db.prepare("UPDATE cron_jobs SET enabled=?,updated_at=? WHERE id=?")
       .run(enabled ? 1 : 0, new Date().toISOString(), id).changes > 0;
   }
-  markCronRun(id, slot) { this.db.prepare("UPDATE cron_jobs SET last_slot=?,updated_at=? WHERE id=?").run(slot, new Date().toISOString(), id); }
+  beginCronRun({ id, jobId, scheduledSlot }) {
+    const now = new Date().toISOString();
+    try {
+      this.db.exec("BEGIN IMMEDIATE");
+      const job = this.cronJob(jobId);
+      if (!job || !job.enabled) { this.db.exec("ROLLBACK"); return null; }
+      this.db.prepare("INSERT INTO cron_runs(id,job_id,scheduled_slot,status,started_at) VALUES(?,?,?,?,?)")
+        .run(id, jobId, scheduledSlot, "running", now);
+      this.db.prepare("UPDATE cron_jobs SET last_slot=?,updated_at=? WHERE id=?").run(scheduledSlot, now, jobId);
+      this.db.exec("COMMIT");
+      return job;
+    } catch (error) {
+      try { this.db.exec("ROLLBACK"); } catch {}
+      if (/UNIQUE constraint failed/.test(error.message)) return null;
+      throw error;
+    }
+  }
+  finishCronRun(id, { status, result = null, error = null }) {
+    return this.db.prepare("UPDATE cron_runs SET status=?,result=?,error=?,finished_at=? WHERE id=?")
+      .run(status, result, error, new Date().toISOString(), id).changes > 0;
+  }
+  cronRuns(jobId = null, limit = 100) {
+    return jobId
+      ? this.db.prepare("SELECT * FROM cron_runs WHERE job_id=? ORDER BY started_at DESC LIMIT ?").all(jobId, limit)
+      : this.db.prepare("SELECT * FROM cron_runs ORDER BY started_at DESC LIMIT ?").all(limit);
+  }
   removeCronJob(id) { return this.db.prepare("DELETE FROM cron_jobs WHERE id=?").run(id).changes > 0; }
   skills() { return this.db.prepare("SELECT id,name,description,source,sha256,enabled,installed_at FROM skills ORDER BY name").all(); }
   skill(id) { return this.db.prepare("SELECT * FROM skills WHERE id=? AND enabled=1").get(id) || null; }

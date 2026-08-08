@@ -6,10 +6,15 @@ final class HeliosBridge: NSObject, WKScriptMessageHandler {
     private var process: Process?
     private var input: FileHandle?
     private var buffer = Data()
+    private var reconnectWorkItem: DispatchWorkItem?
+    private var reconnectAttempt = 0
+    private var stopping = false
 
     init(webView: WKWebView) { self.webView = webView }
 
     func start() {
+        guard process?.isRunning != true else { return }
+        reconnectWorkItem?.cancel()
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let sourceCheckout = Bundle.main.bundleURL
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -38,8 +43,35 @@ final class HeliosBridge: NSObject, WKScriptMessageHandler {
             let message = String(data: handle.availableData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
             if let message, !message.isEmpty { self?.send(["event": "bridge.error", "message": message]) }
         }
-        do { try task.run(); process = task; input = stdin.fileHandleForWriting }
-        catch { send(["event": "bridge.error", "message": error.localizedDescription]) }
+        task.terminationHandler = { [weak self, weak task] _ in
+            guard let self, self.process === task else { return }
+            self.process = nil; self.input = nil
+            if !self.stopping { self.scheduleReconnect() }
+        }
+        do {
+            try task.run(); process = task; input = stdin.fileHandleForWriting
+            send(["event": "bridge.ready"])
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self, weak task] in
+                guard let self, let task, self.process === task, task.isRunning else { return }
+                self.reconnectAttempt = 0
+            }
+        } catch {
+            send(["event": "bridge.error", "message": error.localizedDescription])
+            scheduleReconnect()
+        }
+    }
+
+    private func scheduleReconnect() {
+        guard !stopping, reconnectWorkItem == nil else { return }
+        reconnectAttempt += 1
+        let delay = min(pow(2.0, Double(reconnectAttempt - 1)), 15.0)
+        send(["event": "bridge.reconnecting", "attempt": reconnectAttempt])
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.reconnectWorkItem = nil; self.start()
+        }
+        reconnectWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     private func resolveNode() -> String? {
@@ -79,7 +111,10 @@ final class HeliosBridge: NSObject, WKScriptMessageHandler {
         input?.write(data); input?.write(Data([10]))
     }
 
-    func stop() { input?.closeFile(); process?.terminate() }
+    func stop() {
+        stopping = true; reconnectWorkItem?.cancel(); reconnectWorkItem = nil
+        input?.closeFile(); process?.terminate(); process = nil; input = nil
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

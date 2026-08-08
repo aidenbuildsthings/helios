@@ -5,7 +5,13 @@
 ### Added
 
 - Desktop Cron Jobs management with schedule presets, custom five-field expressions, optional
-  subagent assignment, enable/disable controls, and removal through the existing local scheduler.
+  subagent assignment, run-now actions, enable/disable controls, persistent run history, failure
+  details, and removal through the existing local scheduler.
+- Desktop model verification and switching plus secure Telegram, Discord, and Slack management.
+- Automatic recovery for the private Desktop bridge and the most recent scheduled run missed
+  during up to 24 hours of sleep or downtime.
+- Formatted progressive chat responses, code blocks, response copying, background job failure
+  notifications, request timeouts, and consistent in-app notices.
 
 ## [0.5.0] - 2026-08-08
 

@@ -38,6 +38,7 @@ button:disabled { cursor: default; opacity: .45; }
 .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex: 0 0 auto; }
 .status-dot.online { background: var(--online); }
 .status-dot.warn { background: var(--warn); }
+.status-dot.danger { background: var(--danger); }
 .pulse { box-shadow: 0 0 0 0 rgba(155,234,85,.5); animation: pulse 2s infinite; }
 @keyframes pulse { 70% { box-shadow: 0 0 0 5px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 
@@ -133,6 +134,16 @@ main { flex: 1; min-width: 0; overflow: auto; background: var(--black); padding:
 .message.assistant .avatar { color: var(--online); border-color: #42672b; background: #10180d; }
 .bubble { max-width: 82%; border: 1px solid var(--border); background: var(--black); padding: 11px 13px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.62; font-size: 11px; }
 .message.user .bubble { background: var(--raised); }
+.message.assistant .bubble { white-space: normal; position: relative; padding-bottom: 27px; }
+.message-content h2, .message-content h3, .message-content h4 { margin: 12px 0 7px; line-height: 1.25; }
+.message-content h2:first-child, .message-content h3:first-child, .message-content h4:first-child { margin-top: 0; }
+.message-content code { padding: 1px 4px; background: var(--raised); color: var(--text); }
+.message-content pre { margin: 10px 0; overflow: auto; border: 1px solid var(--border); background: var(--panel); }
+.message-content pre span { display: block; padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--dim); font-size: 8px; }
+.message-content pre code { display: block; padding: 10px; background: transparent; white-space: pre; }
+.md-list { padding-left: 10px; }
+.copy-message { position: absolute; right: 7px; bottom: 5px; border: 0; background: transparent; color: var(--dim); font-size: 8px; letter-spacing: .09em; }
+.copy-message:hover { color: var(--text); }
 .message.error .bubble { color: var(--danger); border-color: #743934; }
 .tool-event { margin: 7px 38px 14px; border-left: 2px solid var(--border); padding: 5px 10px; color: var(--muted); font-size: 9px; line-height: 1.5; }
 .thinking { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
@@ -206,6 +217,19 @@ main { flex: 1; min-width: 0; overflow: auto; background: var(--black); padding:
 .helper-copy { margin: 14px 0 0; color: var(--muted); font-size: 9px; line-height: 1.6; text-transform: uppercase; }
 .notice { padding: 11px 14px; border: 1px solid #735b29; color: var(--warn); background: color-mix(in srgb, var(--warn) 7%, transparent); font-size: 9px; letter-spacing: .09em; }
 .form-error { color: var(--danger); border: 1px solid #743934; padding: 9px 10px; font-size: 9px; letter-spacing: .05em; }
+.history-row { border-bottom: 1px solid var(--border-soft); }
+.history-row:last-child { border-bottom: 0; }
+.history-row summary { min-height: 46px; padding: 0 14px; display: grid; grid-template-columns: 8px minmax(0,1fr) 80px 70px; align-items: center; gap: 10px; cursor: pointer; list-style: none; }
+.history-row summary::-webkit-details-marker { display: none; }
+.history-row summary span:not(.status-dot), .history-row time { color: var(--muted); font-size: 8px; letter-spacing: .08em; }
+.history-row time { text-align: right; }
+.history-row > div { max-height: 240px; overflow: auto; padding: 13px 30px; border-top: 1px solid var(--border-soft); color: var(--muted); line-height: 1.6; }
+#toasts { position: fixed; right: 24px; bottom: 22px; z-index: 100; width: min(360px,calc(100vw - 48px)); display: flex; flex-direction: column; gap: 8px; }
+.toast { min-height: 42px; padding: 10px 12px; border: 1px solid var(--border); background: var(--card); box-shadow: 0 12px 35px rgba(0,0,0,.4); display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text); font-size: 9px; letter-spacing: .05em; }
+.toast.online { border-left: 2px solid var(--online); }
+.toast.warn { border-left: 2px solid var(--warn); }
+.toast.danger { border-left: 2px solid var(--danger); }
+.toast button { border: 0; background: transparent; color: var(--online); font-size: 8px; letter-spacing: .1em; }
 .setting-row { min-height: 62px; padding: 12px 14px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .setting-row:last-child { border-bottom: 0; }
 .setting-row b { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
