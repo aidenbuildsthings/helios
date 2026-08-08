@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $Repository = "aidenbuildsthings/helios"
-$Version = if ($env:HELIOS_VERSION) { $env:HELIOS_VERSION } else { "0.5.0" }
+$Version = if ($env:HELIOS_VERSION) { $env:HELIOS_VERSION } else { "0.5.1" }
 $ReleaseRoot = "https://github.com/$Repository/releases/download/v$Version"
 $ArchiveName = "helios-$Version.zip"
 $LocalAppData = [Environment]::GetFolderPath("LocalApplicationData")

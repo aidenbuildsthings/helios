@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.5.1] - 2026-08-08
 
 ### Added
 
@@ -148,7 +148,9 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 - Built-in computer use, browser bridge, delegation, and learned capabilities.
 - Stable one-line installer served from the latest GitHub release.
 
-[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/aidenbuildsthings/helios/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/aidenbuildsthings/helios/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/aidenbuildsthings/helios/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/aidenbuildsthings/helios/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/aidenbuildsthings/helios/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/aidenbuildsthings/helios/compare/v0.3.0...v0.3.1
