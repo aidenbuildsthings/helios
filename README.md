@@ -50,6 +50,29 @@ optional Obsidian notes, self-improving playbooks, and opt-in browser control.
 Downloaded skills accept verified ClawHub skill cards or direct GitHub `SKILL.md` files.
 Helios stores only bounded instruction text and never installs bundled scripts or package hooks.
 
+## Optional macOS Desktop
+
+Helios Desktop is a separate native macOS app. The normal Helios installer does not install it.
+Desktop uses the existing local configuration, Keychain credentials, SQLite sessions, memory,
+skills, channels, tools, and learned capabilities through a private subprocess bridge. It opens
+no network port and does not copy provider credentials into the app.
+
+Build an unsigned local app bundle:
+
+~~~sh
+./desktop/build.sh --app-only
+open desktop/dist/Helios.app
+~~~
+
+Build the DMG from a normal macOS session:
+
+~~~sh
+./desktop/build.sh
+~~~
+
+Public distribution requires an Apple Developer ID signature and notarization. Local builds use
+an ad-hoc signature.
+
 ## Architecture
 
 ```text

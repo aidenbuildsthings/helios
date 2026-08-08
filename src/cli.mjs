@@ -18,9 +18,10 @@ import { fileURLToPath } from "node:url";
 import { formatDoctor, runDoctor } from "./doctor.mjs";
 import { readRuntime, registerRuntime, restartHelios, startHelios, stopHelios, verifyRuntimeOwner } from "./runtime.mjs";
 import { buildInfo, manageChannels, manageModels, manageTools, uninstallHelios } from "./management.mjs";
+import { runDesktopBridge } from "./desktop-bridge.mjs";
 
-const ui = new TerminalUI();
 const [command = "chat", ...args] = process.argv.slice(2);
+const ui = command === "desktop-bridge" ? null : new TerminalUI();
 
 async function chat() {
   const requestedSession = command === "--session" ? args[0] : args[0] === "--session" ? args[1] : null;
@@ -104,6 +105,7 @@ async function main() {
   helios workers                         Manage persistent workers
   helios cron                            Manage scheduled prompts
   helios autonomy [on|off|status]        Control autonomous execution
+  helios desktop                         Open the optional macOS app
   helios help                            Show this command list
 `);
   } else if (command === "onboard") await onboard(ui, await readConfig());
@@ -226,6 +228,11 @@ async function main() {
     ui.line(`Helios browser bridge is listening on 127.0.0.1:${config.browser.port}.\nLoad the installed browser-extension folder in Chrome and click its toolbar icon.`);
     await new Promise((resolve) => { process.once("SIGINT", resolve); process.once("SIGTERM", resolve); });
     bridge.stop();
+  } else if (command === "desktop-bridge") await runDesktopBridge({ cliPath: fileURLToPath(import.meta.url) });
+  else if (command === "desktop") {
+    if (process.platform !== "darwin") throw new Error("Helios Desktop is currently available for macOS only.");
+    const { execFile } = await import("node:child_process");
+    await new Promise((resolve, reject) => execFile("/usr/bin/open", ["-a", "Helios"], (error) => error ? reject(new Error("Helios.app is not installed. Install the optional Desktop DMG, then retry.")) : resolve()));
   } else if (command === "service") await service();
   else if (command === "chat" || command === "tui" || command === "--session") await chat();
   else throw new Error(`Unknown command: ${command}. Run \`helios --help\`.`);
@@ -234,4 +241,4 @@ async function main() {
 function paintCapability(item) { return `◆ ${item.name}  [${item.id}]  ${item.uses || 0} uses`; }
 function slug(value) { const id = String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50); if (!id) throw new Error("Name must contain letters or numbers."); return id; }
 
-main().catch((error) => { ui.error(error.message); process.exitCode = 1; }).finally(() => ui.close());
+main().catch((error) => { if (ui) ui.error(error.message); else console.error(error.message); process.exitCode = 1; }).finally(() => ui?.close());

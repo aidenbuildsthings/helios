@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Optional native macOS Desktop app with live chat, approvals, sessions, channels, model status,
+  tools, skills, learned capabilities, activity, settings, and local DMG packaging.
+- Private desktop subprocess bridge that keeps Helios configuration and credentials in their
+  existing local owners and exposes no listening network port.
+
 All notable Helios changes are recorded here and repeated in the corresponding GitHub release.
 
 ## [Unreleased]

@@ -13,6 +13,14 @@ Helios is security-focused, but no autonomous agent or software system can be gu
 - Browser and Ollama Local listeners bind to loopback. Never expose them directly to a public network.
 - Secrets use macOS Keychain, Windows DPAPI, or Linux Secret Service. Headless Linux/VPS operators can supply secrets through the service environment; Helios does not write them to its JSON configuration.
 
+## Desktop boundary
+
+The optional macOS Desktop app opens no listening port and never reads provider or channel
+credentials. An isolated WKWebView sends bounded JSON requests to a native launcher, which starts
+the installed Helios CLI as a private child process. The CLI remains responsible for configuration,
+Keychain access, SQLite state, tool policy, and approvals. Desktop web content is bundled locally
+with a restrictive Content Security Policy and no network permission.
+
 ## VPS deployment
 
 Run Helios as a dedicated unprivileged user. Keep the workspace narrowly scoped, use guarded mode, deny inbound network traffic by default, and expose no Helios or Ollama port publicly. Use dedicated bot accounts and provider keys with spending limits. Put remote administration behind SSH or a private overlay network.
