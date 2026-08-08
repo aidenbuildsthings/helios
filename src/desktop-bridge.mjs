@@ -33,6 +33,8 @@ export async function runDesktopBridge({ input = process.stdin, output = process
           workspace: config.workspace, host: `${os.hostname()} · ${os.platform()} ${os.release()} (${os.arch()})`,
           memory: config.memory.backend === "obsidian" ? config.memory.obsidian : "local",
         },
+        preferences: config.desktop,
+        settings: { updates: Boolean(config.updates.enabled), scheduler: Boolean(config.scheduler.enabled) },
         providers: Object.entries(PROVIDERS).map(([id, value]) => ({ id, label: value.label, defaultModel: value.defaultModel, active: id === config.provider })),
         channels: Object.entries(CHANNELS).map(([id, value]) => ({ id, name: value.label, connected: Boolean(config.channels?.[id]?.enabled), allowedSenders: config.channels?.[id]?.allowedSenders || [] })),
         tools: [
@@ -40,9 +42,9 @@ export async function runDesktopBridge({ input = process.stdin, output = process
           { id: "browser", name: "Browser", enabled: Boolean(config.browser.enabled), description: "Local browser-extension bridge." },
           { id: "skills", name: "Skills", enabled: Boolean(config.skills.enabled), description: "Installed instruction-only skills." },
           { id: "learning", name: "Self-improvement", enabled: Boolean(config.learning.enabled), description: "Approved reusable capability learning." },
-          { id: "workers", name: "Sub-agents", enabled: Boolean(config.workers.enabled), description: "Persistent delegated workers." },
+          { id: "workers", name: "Subagents", enabled: Boolean(config.workers.enabled), description: "Persistent purpose-built delegated agents." },
         ],
-        sessions: store.sessions(100), skills: store.skills(), workers: store.workers(), jobs: store.cronJobs(),
+        sessions: store.sessions(100), skills: store.skills(), workers: store.workers(), subagentTasks: store.subagentTasks(), jobs: store.cronJobs(),
         capabilities: await capabilities.list(),
       };
     } finally { store.close(); }
@@ -81,7 +83,7 @@ export async function runDesktopBridge({ input = process.stdin, output = process
       return true;
     }
     if (method === "config.set") {
-      const allowed = new Set(["autonomy.mode", "computer.enabled", "browser.enabled", "skills.enabled", "learning.enabled", "workers.enabled"]);
+      const allowed = new Set(["autonomy.mode", "computer.enabled", "browser.enabled", "skills.enabled", "learning.enabled", "workers.enabled", "updates.enabled", "scheduler.enabled", "desktop.theme", "desktop.reducedMotion", "desktop.compact"]);
       if (!allowed.has(params.key)) throw new Error("That setting cannot be changed from Desktop.");
       const config = await readConfig(env);
       const [section, key] = params.key.split(".");
@@ -94,6 +96,18 @@ export async function runDesktopBridge({ input = process.stdin, output = process
       try { return store.removeSkill(params.id); } finally { store.close(); }
     }
     if (method === "capability.remove") return new CapabilityStore(paths(env).capabilities).remove(params.id);
+    if (method === "subagent.create") {
+      const name = String(params.name || "").trim(); const instructions = String(params.instructions || "").trim();
+      if (!name || !instructions) throw new Error("Subagent name and purpose are required.");
+      const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
+      if (!id) throw new Error("Subagent name must contain letters or numbers.");
+      const config = await readConfig(env); const store = await new Store(env, config).open();
+      try { store.saveWorker({ id, name, instructions, provider: config.provider, model: config.model }); return true; } finally { store.close(); }
+    }
+    if (method === "subagent.remove") {
+      const config = await readConfig(env); const store = await new Store(env, config).open();
+      try { return store.removeWorker(String(params.id || "")); } finally { store.close(); }
+    }
     throw new Error(`Unknown desktop method: ${method}`);
   }
 

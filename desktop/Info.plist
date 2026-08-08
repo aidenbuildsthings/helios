@@ -4,7 +4,7 @@
 <key>CFBundleExecutable</key><string>Helios</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleSignature</key><string>HELI</string>
-<key>CFBundleIdentifier</key><string>xyz.scriptspace.helios.desktop</string>
+<key>CFBundleIdentifier</key><string>app.helios.desktop</string>
 <key>CFBundleName</key><string>Helios</string>
 <key>CFBundleDisplayName</key><string>Helios</string>
 <key>CFBundleIconFile</key><string>Helios</string>

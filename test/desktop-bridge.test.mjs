@@ -21,6 +21,8 @@ test("desktop bridge returns real empty state without exposing credentials", asy
   assert.equal(response.id, 1);
   assert.equal(response.result.agent.provider, null);
   assert.deepEqual(response.result.sessions, []);
+  assert.deepEqual(response.result.subagentTasks, []);
+  assert.equal(response.result.preferences.theme, "system");
   assert.equal(JSON.stringify(response).includes("credentials"), false);
 });
 

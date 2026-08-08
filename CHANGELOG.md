@@ -8,10 +8,15 @@
   tools, skills, learned capabilities, activity, settings, and local DMG packaging.
 - Private desktop subprocess bridge that keeps Helios configuration and credentials in their
   existing local owners and exposes no listening network port.
+- System-default light and dark themes, expanded settings, smoother interactions, a monochrome
+  native app icon, and corrected macOS title-bar clearance.
+- Persistent model-aware subagents, automatic purpose-based delegation, and a live Desktop
+  kanban board backed by recorded subagent task state.
+- `helios subagent` interactive profile creation and checksum-verified, on-demand installation
+  through `helios desktop`.
+- Universal Intel and Apple Silicon Desktop DMGs in tagged GitHub releases.
 
 All notable Helios changes are recorded here and repeated in the corresponding GitHub release.
-
-## [Unreleased]
 
 ## [0.4.0] - 2026-08-08
 

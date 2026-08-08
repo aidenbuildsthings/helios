@@ -57,6 +57,12 @@ Desktop uses the existing local configuration, Keychain credentials, SQLite sess
 skills, channels, tools, and learned capabilities through a private subprocess bridge. It opens
 no network port and does not copy provider credentials into the app.
 
+Install or open the latest checksum-verified Desktop release on macOS:
+
+~~~sh
+helios desktop
+~~~
+
 Build an unsigned local app bundle:
 
 ~~~sh
@@ -102,6 +108,9 @@ helios skills remove <id>
 helios tools list
 helios tools enable browser
 helios tools disable computer
+helios subagent                    # create a persistent specialist
+helios subagent list
+helios subagent remove <id>
 helios version
 helios help
 ```
@@ -125,7 +134,7 @@ library updates; the extension is smaller and works with the browser session the
 
 Run `helios onboard` and use the arrow keys to choose ChatGPT/Codex sign-in, an
 Anthropic or OpenAI API key, Ollama Local, Ollama Cloud, local or Obsidian memory,
-Telegram/Slack/Discord, autonomy, scheduled jobs, workers, skills, and self-improvement.
+Telegram/Slack/Discord, autonomy, scheduled jobs, subagents, skills, and self-improvement.
 
 With Obsidian selected, Helios creates `Memory.md`, `Instructions.md`, and dated Markdown
 logs inside the chosen vault folder. These remain ordinary user-owned notes. Conversation

@@ -9,7 +9,7 @@ import crypto from "node:crypto";
 
 const featureChoices = [
   ["updates", "Update checks every 6 hours"], ["scheduler", "User cron jobs"],
-  ["skills", "Downloaded instruction skills (quarantined by default)"], ["workers", "Persistent user-created workers"],
+  ["skills", "Downloaded instruction skills (quarantined by default)"], ["workers", "Persistent purpose-built subagents"],
   ["computer", "Computer use"], ["learning", "Self-improving capabilities"],
   ["browser", "Browser control through the bundled Chrome extension"],
 ];

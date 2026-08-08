@@ -47,7 +47,22 @@ export async function createApp({ ui, sessionId, env = process.env, approvalMode
     saveAuth: async (nextAuth) => writeSecret("OPENAI_CODEX_AUTH", JSON.stringify(nextAuth)),
   });
   const id = sessionId || crypto.randomUUID();
-  if (local && config.workers.enabled) registry.add(delegateTool({ provider, registry, store, capabilityStore, workspace, parentSessionId: id, events: { status: (status) => ui.status(status) } }));
+  const providerForWorker = async (profile) => {
+    const providerId = profile.provider || config.provider;
+    const workerMetadata = PROVIDERS[providerId];
+    if (!workerMetadata) throw new Error(`Subagent ${profile.name} uses an unsupported provider: ${providerId}.`);
+    if (providerId === config.provider && (!profile.model || profile.model === config.model)) return provider;
+    const workerKey = workerMetadata.credential ? await readSecret(workerMetadata.credential, env) : null;
+    const workerAuthText = providerId === "openai-codex" ? await readSecret("OPENAI_CODEX_AUTH", env) : null;
+    const workerAuth = workerAuthText ? JSON.parse(workerAuthText) : null;
+    if (workerMetadata.credential && !workerKey) throw new Error(`Subagent ${profile.name} needs ${workerMetadata.credential}. Run \`helios models set\` to connect it.`);
+    if (providerId === "openai-codex" && !workerAuth?.access) throw new Error(`Subagent ${profile.name} needs ChatGPT sign-in. Run \`helios models set\` to connect it.`);
+    return createProvider({
+      id: providerId, apiKey: workerKey, auth: workerAuth, model: profile.model || workerMetadata.defaultModel,
+      saveAuth: async (nextAuth) => writeSecret("OPENAI_CODEX_AUTH", JSON.stringify(nextAuth)),
+    });
+  };
+  if (local && config.workers.enabled) registry.add(delegateTool({ provider, providerForWorker, registry, store, capabilityStore, workspace, parentSessionId: id, events: { status: (status) => ui.status(status) } }));
   const agent = await new Agent({
     provider, registry, store, capabilityStore, sessionId: id, workspace, learning: config.learning.enabled,
     events: {

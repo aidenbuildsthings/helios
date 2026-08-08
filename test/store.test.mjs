@@ -37,9 +37,13 @@ test("Obsidian memory creates user-owned notes and daily logs", async () => {
 test("persistent workers and cron jobs use the state database", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "helios-state-"));
   const store = await new Store({ HELIOS_HOME: home }).open();
-  store.saveWorker({ id: "researcher", name: "Researcher", instructions: "Cite evidence." });
+  store.saveWorker({ id: "researcher", name: "Researcher", instructions: "Cite evidence.", provider: "anthropic", model: "claude-sonnet-4-6" });
   store.saveCronJob({ id: "daily", name: "Daily", expression: "0 9 * * *", prompt: "Prepare report", workerId: "researcher" });
   assert.equal(store.worker("researcher").instructions, "Cite evidence.");
+  assert.equal(store.worker("researcher").model, "claude-sonnet-4-6");
   assert.equal(store.cronJobs()[0].worker_id, "researcher");
+  store.saveSubagentTask({ id: "task-1", workerId: "researcher", title: "Research competitors", status: "running" });
+  store.setSubagentTaskStatus("task-1", "done");
+  assert.equal(store.subagentTasks()[0].status, "done");
   store.close();
 });

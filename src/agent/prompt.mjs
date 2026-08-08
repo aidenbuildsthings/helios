@@ -26,6 +26,8 @@ ${capabilities.length ? capabilities.map((item) => `- ${item.id}: ${item.descrip
 Installed instruction skills:
 ${skills.length ? skills.slice(0, 50).map((item) => `- ${item.id}: ${item.description}`).join("\n") : "(none)"}
 
-Persistent workers available to delegate:
-${workers.length ? workers.slice(0, 50).map((item) => `- ${item.id}: ${item.name}`).join("\n") : "(none)"}`;
+Persistent subagents available to delegate:
+${workers.length ? workers.slice(0, 50).map((item) => `- ${item.id}: ${item.name} — ${item.instructions}${item.model ? ` (${item.provider}/${item.model})` : ""}`).join("\n") : "(none)"}
+
+Delegate a task when it clearly matches a subagent's stated purpose. Give each subagent one bounded assignment and use its returned evidence in your response.`;
 }

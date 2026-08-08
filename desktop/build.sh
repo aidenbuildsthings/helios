@@ -2,14 +2,17 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 VERSION="$(node -p "require('$ROOT/../package.json').version")"
-ARCH="$(uname -m)"
+ARCH="universal"
 OUT="$ROOT/dist"
 STAGING="$(mktemp -d "${TMPDIR:-/tmp}/helios-desktop.XXXXXX")"
 trap 'rm -rf "$STAGING"' EXIT
 APP="$STAGING/Helios.app"
-CACHE="$STAGING/module-cache"
-mkdir -p "$OUT" "$APP/Contents/MacOS" "$APP/Contents/Resources/Resources" "$CACHE"
-swiftc "$ROOT/Sources/main.swift" -O -module-cache-path "$CACHE" -framework Cocoa -framework WebKit -o "$APP/Contents/MacOS/Helios"
+CACHE_ARM="$STAGING/module-cache-arm64"
+CACHE_X64="$STAGING/module-cache-x86_64"
+mkdir -p "$OUT" "$APP/Contents/MacOS" "$APP/Contents/Resources/Resources" "$CACHE_ARM" "$CACHE_X64"
+swiftc "$ROOT/Sources/main.swift" -O -target arm64-apple-macos13.0 -module-cache-path "$CACHE_ARM" -framework Cocoa -framework WebKit -o "$STAGING/Helios-arm64"
+swiftc "$ROOT/Sources/main.swift" -O -target x86_64-apple-macos13.0 -module-cache-path "$CACHE_X64" -framework Cocoa -framework WebKit -o "$STAGING/Helios-x86_64"
+lipo -create "$STAGING/Helios-arm64" "$STAGING/Helios-x86_64" -output "$APP/Contents/MacOS/Helios"
 cp "$ROOT/Resources/index.html" "$ROOT/Resources/style.css" "$ROOT/Resources/app.js" "$APP/Contents/Resources/Resources/"
 ICONSET="$STAGING/Helios.iconset"
 mkdir -p "$ICONSET"
@@ -28,5 +31,9 @@ if [[ "${1:-}" == "--app-only" ]]; then
   echo "$OUT/Helios.app"
   exit 0
 fi
-hdiutil create -volname "Helios Desktop" -srcfolder "$APP" -ov -format UDZO "$OUT/Helios-Desktop-$VERSION-$ARCH.dmg"
+DMG_ROOT="$STAGING/dmg"
+mkdir -p "$DMG_ROOT"
+ditto "$APP" "$DMG_ROOT/Helios.app"
+ln -s /Applications "$DMG_ROOT/Applications"
+hdiutil create -volname "Helios Desktop" -srcfolder "$DMG_ROOT" -ov -format UDZO "$OUT/Helios-Desktop-$VERSION-$ARCH.dmg"
 echo "$OUT/Helios-Desktop-$VERSION-$ARCH.dmg"

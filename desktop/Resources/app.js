@@ -6,6 +6,7 @@ const sections = [
   ["skills", "Skills", "▧"],
   ["tools", "Tools", "⌘"],
   ["capabilities", "Capabilities", "✦"],
+  ["subagents", "Subagents", "⌘"],
   ["activity", "Activity", "≡"],
   ["settings", "Settings", "⚙"],
 ];
@@ -13,6 +14,7 @@ const sections = [
 const pending = new Map();
 const main = document.querySelector("#main");
 const nav = document.querySelector("#nav-items");
+const navSettings = document.querySelector("#nav-settings");
 const palette = document.querySelector("#palette");
 let snapshot = null;
 let active = "overview";
@@ -61,7 +63,7 @@ for (const [id, label, icon] of sections) {
   button.dataset.id = id;
   button.innerHTML = `<span class="nav-icon">${icon}</span><span>${label}</span>`;
   button.addEventListener("click", () => navigate(id));
-  nav.appendChild(button);
+  (id === "settings" ? navSettings : nav).appendChild(button);
 }
 
 function esc(value) {
@@ -116,6 +118,7 @@ function navigate(id) {
 function render() {
   if (!snapshot) return;
   const agent = snapshot.agent;
+  applyPreferences();
   document.querySelector("#health").innerHTML = `<span class="status-dot ${agent.service === "running" ? "online pulse" : "warn"}"></span><span>V${esc(agent.version)}</span>`;
   document.querySelector("#nav-host").textContent = agent.host || "LOCAL HOST";
   nav.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.id === active));
@@ -128,10 +131,18 @@ function render() {
     skills: renderSkills,
     tools: renderTools,
     capabilities: renderCapabilities,
+    subagents: renderSubagents,
     activity: renderActivity,
     settings: renderSettings,
   };
   renderers[active]();
+}
+
+function applyPreferences() {
+  const preferences = snapshot?.preferences || {};
+  document.documentElement.dataset.theme = preferences.theme || "system";
+  document.documentElement.classList.toggle("reduced-motion", Boolean(preferences.reducedMotion));
+  document.documentElement.classList.toggle("compact", Boolean(preferences.compact));
 }
 
 function renderOverview() {
@@ -307,27 +318,76 @@ function renderCapabilities() {
   });
 }
 
+function renderSubagents() {
+  const workers = snapshot.workers || [];
+  const tasks = snapshot.subagentTasks || [];
+  const columns = [
+    ["queued", "Queued"], ["running", "In progress"], ["done", "Done"], ["failed", "Needs attention"],
+  ];
+  const cards = (status) => tasks.filter((task) => task.status === status).map((task) => {
+    const worker = workers.find((item) => item.id === task.worker_id);
+    return `<article class="task-card ${status}"><div class="task-card-top"><span>${esc(worker?.name || "General subagent")}</span>${statusTag(status, status === "running" ? "warn" : status === "done" ? "online" : status === "failed" ? "danger" : "")}</div><p>${esc(task.title)}</p><time>${esc(relativeDate(task.updated_at))}</time></article>`;
+  }).join("") || `<div class="board-empty">NO TASKS</div>`;
+  main.innerHTML = `<div class="view subagent-view">
+    ${title("Subagents", "PERSISTENT SPECIALISTS HELIOS CAN DELEGATE MATCHING WORK TO", `<button id="new-subagent" class="button primary">＋ NEW SUBAGENT</button>`)}
+    <section class="agent-strip">${workers.length ? workers.map((worker) => `<article class="agent-profile"><div class="agent-avatar">${esc(worker.name.slice(0, 2).toUpperCase())}</div><div class="grow"><strong>${esc(worker.name)}</strong><p>${esc(worker.instructions)}</p><span>${esc(worker.provider || snapshot.agent.provider)}/${esc(worker.model || snapshot.agent.model)}</span></div><button class="icon-button remove-subagent" data-id="${attr(worker.id)}" aria-label="Remove ${attr(worker.name)}">×</button></article>`).join("") : `<div class="empty-agent"><b>NO SUBAGENTS YET</b><span>Create a specialist here or run <code>helios subagent</code>.</span></div>`}</section>
+    <section class="kanban">${columns.map(([status, name]) => `<div class="board-column"><header><span>${name}</span><b>${tasks.filter((task) => task.status === status).length}</b></header><div class="board-cards">${cards(status)}</div></div>`).join("")}</section>
+  </div>`;
+  document.querySelector("#new-subagent").onclick = openSubagentDialog;
+  document.querySelectorAll(".remove-subagent").forEach((button) => button.onclick = async () => {
+    if (!confirm("Remove this subagent profile? Existing task history will remain.")) return;
+    await call("subagent.remove", { id: button.dataset.id }); await reload();
+  });
+}
+
+function openSubagentDialog() {
+  const box = document.querySelector("#dialog");
+  box.classList.remove("hidden");
+  box.innerHTML = `<section class="dialog"><header class="panel-head"><span class="panel-title">NEW SUBAGENT</span><button id="close-dialog" class="icon-button" aria-label="Close">×</button></header><div class="dialog-content form-stack"><label>NAME<input id="subagent-name" placeholder="Research analyst" maxlength="80"></label><label>WHAT WILL THEY BE USED FOR?<textarea id="subagent-purpose" placeholder="Research competitors, verify sources, and return concise evidence…" maxlength="2000"></textarea></label><label>MODEL<div class="select-wrap">◇ <span>${label(snapshot.agent.provider)}/${label(snapshot.agent.model)}</span></div><small>Uses the active provider. Run <code>helios subagent</code> in Terminal to connect a different provider.</small></label></div><footer class="dialog-actions"><button id="cancel-subagent" class="button">CANCEL</button><button id="save-subagent" class="button primary">CREATE SUBAGENT</button></footer></section>`;
+  const close = () => box.classList.add("hidden");
+  document.querySelector("#close-dialog").onclick = close; document.querySelector("#cancel-subagent").onclick = close;
+  box.onclick = (event) => { if (event.target === box) close(); };
+  document.querySelector("#save-subagent").onclick = async () => {
+    const name = document.querySelector("#subagent-name").value.trim(); const instructions = document.querySelector("#subagent-purpose").value.trim();
+    if (!name || !instructions) return;
+    await call("subagent.create", { name, instructions }); close(); await reload();
+  };
+  document.querySelector("#subagent-name").focus();
+}
+
 function renderActivity() {
   main.innerHTML = `<div class="view">${title("Activity", "LIVE EVENTS FROM THIS DESKTOP SESSION", `<button id="clear-events" class="button">CLEAR</button>`)}${panel("Event stream", events.length ? events.map((event) => row(event.event, describeEvent(event), statusTag(relativeDate(event.receivedAt)), "›")).join("") : empty("No live activity yet."), statusTag(`${events.length} EVENTS`))}</div>`;
   document.querySelector("#clear-events").onclick = () => { events = []; render(); };
 }
 
 function renderSettings() {
-  const agent = snapshot.agent;
+  const agent = snapshot.agent; const preferences = snapshot.preferences || {};
   main.innerHTML = `<div class="view">${title("Settings", "LOCAL CONFIGURATION AND INSTALL STATUS")}
+    ${panel("Appearance", `<div class="setting-row"><div><b>THEME</b><p>FOLLOW YOUR MAC BY DEFAULT, OR OVERRIDE IT.</p></div><div class="segmented">${["system", "light", "dark"].map((theme) => `<button data-theme-value="${theme}" class="${(preferences.theme || "system") === theme ? "active" : ""}">${theme}</button>`).join("")}</div></div>${settingToggle("Reduced motion", "Turn off interface animations and pulsing indicators.", "desktop.reducedMotion", preferences.reducedMotion)}${settingToggle("Compact layout", "Fit more rows and cards on screen.", "desktop.compact", preferences.compact)}`)}
     <section class="columns equal">
       ${panel("Agent", `<div class="panel-body">${kv("version", esc(agent.version))}${kv("service", statusTag(agent.service, agent.service === "running" ? "online" : "warn"))}${kv("provider", label(agent.provider))}${kv("model", label(agent.model))}${kv("host", label(agent.host))}</div>`)}
       ${panel("Storage", `<div class="panel-body">${kv("workspace", label(agent.workspace))}${kv("memory", label(agent.memory))}${kv("distribution", "OPTIONAL MACOS APP")}</div>`)}
     </section>
     <section class="columns equal">
-      ${panel("Autonomy", row(agent.autonomy, "HIGH-RISK ACTIONS STILL REQUIRE EXPLICIT APPROVAL.", `<button id="autonomy" class="toggle ${agent.autonomy === "autonomous" ? "on" : ""}"></button>`, "⚙"))}
+      ${panel("Agent behavior", `${settingToggle("Autonomous mode", "Ordinary actions proceed without repeated approval.", "autonomy.mode", agent.autonomy === "autonomous", "autonomous", "guarded")}${settingToggle("Self-improvement", "Propose reusable capabilities after verified workflows.", "learning.enabled", snapshot.tools.find((tool) => tool.id === "learning")?.enabled)}${settingToggle("Subagents", "Allow Helios to delegate matching bounded work.", "workers.enabled", snapshot.tools.find((tool) => tool.id === "workers")?.enabled)}`)}
+      ${panel("Background", `${settingToggle("Automatic updates", "Check for verified releases every six hours.", "updates.enabled", snapshot.settings?.updates ?? true)}${settingToggle("Scheduled jobs", "Run enabled cron jobs with the background service.", "scheduler.enabled", snapshot.settings?.scheduler ?? true)}`)}
+    </section>
+    <section class="columns equal">
       ${panel("Privacy", row("Private local bridge", "NO LISTENING PORT. CREDENTIALS NEVER ENTER THE WEB VIEW.", statusTag("LOCAL", "online"), "⌂"))}
+      ${panel("Desktop", row("Native macOS app", "INSTALL OR OPEN IT ANY TIME WITH HELIOS DESKTOP.", statusTag("OPTIONAL"), "◇"))}
     </section>
   </div>`;
-  document.querySelector("#autonomy").onclick = async () => {
-    snapshot = await call("config.set", { key: "autonomy.mode", value: agent.autonomy === "guarded" ? "autonomous" : "guarded" });
-    render();
-  };
+  document.querySelectorAll("[data-theme-value]").forEach((button) => button.onclick = () => updateSetting("desktop.theme", button.dataset.themeValue));
+  document.querySelectorAll("[data-setting]").forEach((button) => button.onclick = () => updateSetting(button.dataset.setting, button.classList.contains("on") ? button.dataset.off : button.dataset.on));
+}
+
+function settingToggle(name, detail, key, enabled, on = "true", off = "false") {
+  return `<div class="setting-row"><div><b>${esc(name)}</b><p>${esc(detail)}</p></div><button class="toggle ${enabled ? "on" : ""}" data-setting="${attr(key)}" data-on="${attr(on)}" data-off="${attr(off)}" aria-label="Toggle ${attr(name)}"></button></div>`;
+}
+
+async function updateSetting(key, raw) {
+  const value = raw === "true" ? true : raw === "false" ? false : raw;
+  snapshot = await call("config.set", { key, value }); render();
 }
 
 function renderApproval() {

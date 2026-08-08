@@ -19,6 +19,7 @@ import { formatDoctor, runDoctor } from "./doctor.mjs";
 import { readRuntime, registerRuntime, restartHelios, startHelios, stopHelios, verifyRuntimeOwner } from "./runtime.mjs";
 import { buildInfo, manageChannels, manageModels, manageTools, uninstallHelios } from "./management.mjs";
 import { runDesktopBridge } from "./desktop-bridge.mjs";
+import { openDesktop } from "./desktop.mjs";
 
 const [command = "chat", ...args] = process.argv.slice(2);
 const ui = command === "desktop-bridge" ? null : new TerminalUI();
@@ -102,7 +103,8 @@ async function main() {
   helios tools [list|enable|disable]     Manage browser and computer tools
   helios sessions                        List conversations
   helios capabilities                    Manage learned capabilities
-  helios workers                         Manage persistent workers
+  helios subagent                        Create a persistent subagent
+  helios subagent list|remove            Manage persistent subagents
   helios cron                            Manage scheduled prompts
   helios autonomy [on|off|status]        Control autonomous execution
   helios desktop                         Open the optional macOS app
@@ -179,6 +181,26 @@ async function main() {
       } else if (action === "remove") { if (!store.removeWorker(args[1] || "")) throw new Error("Worker not found."); ui.line("Worker removed."); }
       else throw new Error("Usage: helios workers [list|add [name]|remove <id>]");
     } finally { store.close(); }
+  } else if (command === "subagent") {
+    const action = args[0] || "add"; let config = await readConfig(); const store = await new Store(process.env, config).open();
+    try {
+      if (action === "list") {
+        const items = store.workers();
+        if (!items.length) ui.line("No persistent subagents yet. Run `helios subagent` to create one.");
+        else items.forEach((item) => ui.line(`${item.id}  ${item.name}  ${item.provider || config.provider}/${item.model || config.model}\n  ${item.instructions}`));
+      } else if (action === "add") {
+        const name = (args[1] || await ui.question("Subagent name: ")).trim(); const id = slug(name);
+        const purpose = (await ui.question("What will this subagent be used for? ")).trim();
+        if (!purpose) throw new Error("A subagent purpose is required.");
+        const choice = await ui.choose("Choose its model", [`Use current model (${config.provider}/${config.model})`, "Connect or choose another provider"]);
+        if (choice === 1) { await manageModels(ui, ["set"]); config = await readConfig(); }
+        store.saveWorker({ id, name, instructions: purpose, provider: config.provider, model: config.model });
+        ui.line(`Created subagent ${id}. Helios can now delegate matching work to it.`);
+      } else if (action === "remove") {
+        if (!store.removeWorker(args[1] || "")) throw new Error("Subagent not found.");
+        ui.line("Subagent removed.");
+      } else throw new Error("Usage: helios subagent [add [name]|list|remove <id>]");
+    } finally { store.close(); }
   } else if (command === "cron") {
     const action = args[0] || "list"; const config = await readConfig(); const store = await new Store(process.env, config).open();
     try {
@@ -186,7 +208,7 @@ async function main() {
       else if (action === "add") {
         const name = (await ui.question("Job name: ")).trim(); const expression = validateCron((await ui.question("Cron (minute hour day month weekday): ")).trim());
         const prompt = (await ui.question("Prompt: ")).trim(); if (!name || !prompt) throw new Error("Job name and prompt are required.");
-        const workers = store.workers(); const workerIndex = await ui.choose("Run as worker", ["No worker", ...workers.map((item) => `${item.name} (${item.id})`)]);
+        const workers = store.workers(); const workerIndex = await ui.choose("Run as subagent", ["No subagent", ...workers.map((item) => `${item.name} (${item.id})`)]);
         store.saveCronJob({ id: slug(name), name, expression, prompt, workerId: workerIndex ? workers[workerIndex - 1].id : null }); ui.line(`Created cron job ${slug(name)}.`);
       } else if (action === "remove") { if (!store.removeCronJob(args[1] || "")) throw new Error("Cron job not found."); ui.line("Cron job removed."); }
       else throw new Error("Usage: helios cron [list|add|remove <id>]");
@@ -230,9 +252,9 @@ async function main() {
     bridge.stop();
   } else if (command === "desktop-bridge") await runDesktopBridge({ cliPath: fileURLToPath(import.meta.url) });
   else if (command === "desktop") {
-    if (process.platform !== "darwin") throw new Error("Helios Desktop is currently available for macOS only.");
-    const { execFile } = await import("node:child_process");
-    await new Promise((resolve, reject) => execFile("/usr/bin/open", ["-a", "Helios"], (error) => error ? reject(new Error("Helios.app is not installed. Install the optional Desktop DMG, then retry.")) : resolve()));
+    ui.line("Opening Helios Desktop…");
+    const result = await openDesktop({ cliPath: fileURLToPath(import.meta.url) });
+    if (result.installed) ui.line(`Installed Helios Desktop in ${result.app}.`);
   } else if (command === "service") await service();
   else if (command === "chat" || command === "tui" || command === "--session") await chat();
   else throw new Error(`Unknown command: ${command}. Run \`helios --help\`.`);

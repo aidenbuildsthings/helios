@@ -31,7 +31,11 @@ export class Store {
       );
       CREATE INDEX IF NOT EXISTS messages_session_id ON messages(session_id, id);
       CREATE TABLE IF NOT EXISTS workers (
-        id TEXT PRIMARY KEY, name TEXT NOT NULL, instructions TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, instructions TEXT NOT NULL, provider TEXT, model TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS subagent_tasks (
+        id TEXT PRIMARY KEY, worker_id TEXT REFERENCES workers(id) ON DELETE SET NULL, title TEXT NOT NULL,
+        status TEXT NOT NULL, result TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS cron_jobs (
         id TEXT PRIMARY KEY, name TEXT NOT NULL, expression TEXT NOT NULL, prompt TEXT NOT NULL,
@@ -46,6 +50,9 @@ export class Store {
         name TEXT PRIMARY KEY, encrypted_value TEXT NOT NULL
       );
     `);
+    const workerColumns = new Set(this.db.prepare("PRAGMA table_info(workers)").all().map((column) => column.name));
+    if (!workerColumns.has("provider")) this.db.exec("ALTER TABLE workers ADD COLUMN provider TEXT");
+    if (!workerColumns.has("model")) this.db.exec("ALTER TABLE workers ADD COLUMN model TEXT");
     await this.memoryStore.initialize();
     return this;
   }
@@ -76,11 +83,18 @@ export class Store {
 
   workers() { return this.db.prepare("SELECT * FROM workers ORDER BY name").all(); }
   worker(id) { return this.db.prepare("SELECT * FROM workers WHERE id=?").get(id) || null; }
-  saveWorker({ id, name, instructions }) {
+  saveWorker({ id, name, instructions, provider = null, model = null }) {
     const now = new Date().toISOString();
-    this.db.prepare("INSERT INTO workers(id,name,instructions,created_at,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,instructions=excluded.instructions,updated_at=excluded.updated_at").run(id, name, instructions, now, now);
+    this.db.prepare("INSERT INTO workers(id,name,instructions,provider,model,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,instructions=excluded.instructions,provider=excluded.provider,model=excluded.model,updated_at=excluded.updated_at").run(id, name, instructions, provider, model, now, now);
   }
   removeWorker(id) { return this.db.prepare("DELETE FROM workers WHERE id=?").run(id).changes > 0; }
+  subagentTasks(limit = 200) { return this.db.prepare("SELECT * FROM subagent_tasks ORDER BY updated_at DESC LIMIT ?").all(limit); }
+  saveSubagentTask({ id, workerId = null, title, status, result = null }) {
+    const now = new Date().toISOString();
+    this.db.prepare("INSERT INTO subagent_tasks(id,worker_id,title,status,result,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET worker_id=excluded.worker_id,title=excluded.title,status=excluded.status,result=excluded.result,updated_at=excluded.updated_at")
+      .run(id, workerId, title, status, result, now, now);
+  }
+  setSubagentTaskStatus(id, status) { return this.db.prepare("UPDATE subagent_tasks SET status=?,updated_at=? WHERE id=?").run(status, new Date().toISOString(), id).changes > 0; }
   cronJobs() { return this.db.prepare("SELECT * FROM cron_jobs ORDER BY name").all(); }
   saveCronJob({ id, name, expression, prompt, workerId = null }) {
     const now = new Date().toISOString();
