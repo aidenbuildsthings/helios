@@ -7,6 +7,7 @@
 <key>CFBundleIdentifier</key><string>xyz.scriptspace.helios.desktop</string>
 <key>CFBundleName</key><string>Helios</string>
 <key>CFBundleDisplayName</key><string>Helios</string>
+<key>CFBundleIconFile</key><string>Helios</string>
 <key>CFBundleVersion</key><string>__VERSION__</string>
 <key>CFBundleShortVersionString</key><string>__VERSION__</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
