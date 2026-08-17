@@ -18,7 +18,6 @@ export const DEFAULT_CONFIG = Object.freeze({
   computer: { enabled: true },
   browser: { enabled: false, port: 47821 },
   autonomy: { mode: "guarded" },
-  desktop: { theme: "system", reducedMotion: false, compact: false },
 });
 
 export async function readConfig(env = process.env) {
@@ -39,7 +38,6 @@ export async function readConfig(env = process.env) {
       skills: { ...DEFAULT_CONFIG.skills, ...parsed.skills },
       workers: { ...DEFAULT_CONFIG.workers, ...parsed.workers },
       computer: { ...DEFAULT_CONFIG.computer, ...parsed.computer },
-      desktop: { ...DEFAULT_CONFIG.desktop, ...parsed.desktop },
     };
   } catch (error) {
     if (error?.code === "ENOENT") return structuredClone(DEFAULT_CONFIG);

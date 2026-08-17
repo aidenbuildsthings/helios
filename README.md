@@ -30,11 +30,6 @@ helios doctor   # diagnose configuration and runtime problems
 helios restart  # restart the background Helios service
 ```
 
-Agent and Desktop updates are independent. `helios update` changes only the command-line agent.
-On macOS, `helios desktop` checks for a newer verified app release, updates it when needed, and
-opens it. Desktop DMGs are distributed as implementation assets for that command; direct manual
-installation is not a supported update path.
-
 Run persistent channels, scheduled jobs, update checks, and browser control in the background:
 
 ```sh
@@ -55,39 +50,6 @@ optional Obsidian notes, self-improving playbooks, and opt-in browser control.
 Downloaded skills accept verified ClawHub skill cards or direct GitHub `SKILL.md` files.
 Helios stores only bounded instruction text and never installs bundled scripts or package hooks.
 
-## Optional macOS Desktop
-
-Helios Desktop is a separate native macOS app. The normal Helios installer does not install it.
-Desktop uses the existing local configuration, Keychain credentials, SQLite sessions, memory,
-skills, channels, tools, and learned capabilities through a private subprocess bridge. It opens
-no network port and does not copy provider credentials into the app.
-
-The Desktop app can verify and switch models, securely connect or disconnect messaging channels,
-manage cron jobs, run a job immediately, inspect its output history, and notify you of failures.
-Its private bridge reconnects automatically if the local subprocess exits.
-
-Install, update, or open the latest checksum-verified Desktop release on macOS:
-
-~~~sh
-helios desktop
-~~~
-
-Build an unsigned local app bundle:
-
-~~~sh
-./desktop/build.sh --app-only
-open desktop/dist/Helios.app
-~~~
-
-Build the DMG from a normal macOS session:
-
-~~~sh
-./desktop/build.sh
-~~~
-
-Public distribution requires an Apple Developer ID signature and notarization. Local builds use
-an ad-hoc signature.
-
 ## Architecture
 
 ```text
@@ -102,6 +64,13 @@ Connected channels run with an interactive `helios` session or `helios start`; n
 gateway command is required. The terminal and channels use the same agent core. Remote messages cannot approve
 local writes or command execution. Browser tools are exposed only while the local bridge
 is reachable.
+
+## Terminal experience
+
+Run `helios` to open the interactive terminal. It shows the active model, session, approval mode,
+workspace, live thinking state, and compact tool progress. Use arrow keys for input history.
+In-session commands include `/status`, `/model`, `/tools`, `/sessions`, `/capabilities`, `/clear`,
+`/help`, and `/exit`.
 
 ## Management commands
 
@@ -120,7 +89,7 @@ helios tools disable computer
 helios subagent                    # create a persistent specialist
 helios subagent list
 helios subagent remove <id>
-helios cron                         # manage recurring work (also available in Desktop)
+helios cron                         # manage recurring work
 helios version
 helios help
 ```

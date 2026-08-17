@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import { prepareRawInput, TerminalUI } from "../src/tui/ui.mjs";
+import { stripAnsi } from "../src/tui/theme.mjs";
 
 test("raw terminal input resumes after readline pauses stdin", () => {
   const input = new PassThrough();
@@ -64,4 +65,21 @@ test("secret entry stays active until Enter", async () => {
   ui.close();
   input.destroy();
   output.destroy();
+});
+
+test("conversation chrome keeps status compact and tool output private", () => {
+  const input = new PassThrough(); const output = new PassThrough(); let rendered = "";
+  output.on("data", (chunk) => { rendered += chunk; });
+  const ui = new TerminalUI({ input, output });
+  ui.banner({ model: "openai/gpt-test", session: "abc123", capabilities: 2, autonomy: "guarded", workspace: "/a/very/long/workspace/path" });
+  ui.toolStart({ name: "read_file" });
+  ui.toolEnd({ name: "read_file" }, "private file contents");
+  ui.assistant("Ready to work.");
+  const plain = stripAnsi(rendered);
+  assert.match(plain, /H E L I O S  local business agent/);
+  assert.match(plain, /model openai\/gpt-test/);
+  assert.match(plain, /✓ Read file/);
+  assert.doesNotMatch(plain, /private file contents/);
+  assert.match(plain, /● Helios\n\n  Ready to work\./);
+  ui.close(); input.destroy(); output.destroy();
 });

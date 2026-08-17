@@ -13,7 +13,7 @@ test("update verifies the installer before running it", async () => {
   const installer = "#!/bin/bash\nexit 0\n"; const digest = crypto.createHash("sha256").update(installer).digest("hex"); const requested = [];
   const fetchImpl = async (url) => {
     requested.push(String(url));
-    if (String(url).includes("/releases?")) return new Response(JSON.stringify([{ tag_name: "desktop-v99.0.0" }, { tag_name: "v9.9.9", html_url: "https://example.test/release" }]));
+    if (String(url).includes("/releases?")) return new Response(JSON.stringify([{ tag_name: "plugin-v99.0.0" }, { tag_name: "v9.9.9", html_url: "https://example.test/release" }]));
     if (String(url).endsWith("/install.sh")) return new Response(installer);
     return new Response(`${digest}  install.sh\n`);
   };

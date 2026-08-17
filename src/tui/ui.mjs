@@ -9,36 +9,32 @@ export function prepareRawInput(input) {
   input.resume();
 }
 
-const LOGO = [
-  "██╗  ██╗███████╗██╗     ██╗ ██████╗ ███████╗",
-  "██║  ██║██╔════╝██║     ██║██╔═══██╗██╔════╝",
-  "███████║█████╗  ██║     ██║██║   ██║███████╗",
-  "██╔══██║██╔══╝  ██║     ██║██║   ██║╚════██║",
-  "██║  ██║███████╗███████╗██║╚██████╔╝███████║",
-  "╚═╝  ╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚══════╝",
-];
+const SPINNER = ["·", "✦", "✧", "✦"];
 
 export class TerminalUI {
   constructor({ input = stdin, output = stdout } = {}) {
     this.input = input;
     this.output = output;
-    this.rl = readline.createInterface({ input, output });
+    this.rl = readline.createInterface({ input, output, historySize: 200, removeHistoryDuplicates: true });
+    this.activityTimer = null;
+    this.activityStarted = 0;
+    this.activityText = "";
   }
   line(text = "") { this.output.write(`${text}\n`); }
   banner(meta) {
     this.output.write("\x1bc");
-    if ((this.output.columns || 80) >= 58) LOGO.forEach((line) => this.line(paint(color.cyan, line)));
-    else this.line(`${paint(color.cyan, "◆")} ${paint(color.bold, "H E L I O S")}`);
-    this.line();
-    this.line(`${paint(color.bold, "YOUR BUSINESS AGENT")}  ${paint(color.dim, "Local · capable · under your control")}`);
-    this.line(paint(color.dim, `Model ${meta.model}   Session ${meta.session}   Learned ${meta.capabilities || 0}   Autonomy ${meta.autonomy || "guarded"}`));
-    this.line(paint(color.dim, `Workspace ${meta.workspace}`));
-    this.line(paint(color.dim, "─".repeat(Math.min(this.output.columns || 80, 96))));
+    const width = Math.min(Math.max(this.output.columns || 80, 48), 96);
+    this.line(`${paint(color.cyan, "✦")}  ${paint(color.bold, "H E L I O S")}  ${paint(color.dim, "local business agent")}`);
+    this.line(paint(color.dim, "─".repeat(width)));
+    this.line(`${paint(color.dim, "model")} ${meta.model}   ${paint(color.dim, "session")} ${meta.session}   ${paint(color.dim, "mode")} ${meta.autonomy || "guarded"}`);
+    this.line(`${paint(color.dim, "memory")} ${meta.capabilities || 0} learned capabilities   ${paint(color.dim, "workspace")} ${compactPath(meta.workspace, width)}`);
+    this.line(paint(color.dim, "─".repeat(width)));
+    this.line(`${paint(color.dim, "Type a message")}  ${paint(color.cyan, "/help")} ${paint(color.dim, "commands")}  ${paint(color.cyan, "↑↓")} ${paint(color.dim, "history")}  ${paint(color.cyan, "Ctrl+C")} ${paint(color.dim, "exit")}`);
     this.line();
   }
   async prompt(label = "YOU") {
-    this.line(paint(color.dim, "┌─ What should Helios do?"));
-    return this.rl.question(`${paint(color.cyan, "└▶")} ${paint(color.bold, label)}  `);
+    this.stopActivity();
+    return this.rl.question(`${paint(color.cyan, "❯")} `);
   }
   async question(text) { return this.rl.question(text); }
   async secret(text) {
@@ -116,21 +112,43 @@ export class TerminalUI {
     this.line(paint(color.amber, `╰${"─".repeat(width - 2)}╯`));
     return /^y(es)?$/i.test((await this.question(`  ${paint(color.amber, "Approve?")} [y/N] `)).trim());
   }
-  status(text) { this.output.write(`\x1b[2K\r${paint(color.dim, `Helios · ${text}`)}`); }
-  toolStart(call) { this.status(`using ${call.name}`); }
+  status(text) {
+    if (text === "ready" || text === "idle") { this.stopActivity(); return; }
+    this.startActivity(text);
+  }
+  startActivity(text) {
+    this.stopActivity();
+    this.activityText = text; this.activityStarted = Date.now();
+    if (!this.output.isTTY) { this.line(`${paint(color.dim, "…")} ${humanize(text)}`); return; }
+    let frame = 0;
+    const render = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - this.activityStarted) / 1000));
+      this.output.write(`\x1b[2K\r${paint(color.cyan, SPINNER[frame++ % SPINNER.length])} ${paint(color.dim, humanize(this.activityText))}${elapsed >= 2 ? paint(color.dim, ` · ${elapsed}s`) : ""}`);
+    };
+    render(); this.activityTimer = setInterval(render, 160); this.activityTimer.unref?.();
+  }
+  stopActivity() {
+    if (this.activityTimer) clearInterval(this.activityTimer);
+    this.activityTimer = null;
+    if (this.output.isTTY && this.activityText) this.output.write("\x1b[2K\r");
+    this.activityText = "";
+  }
+  toolStart(call) { this.startActivity(humanize(call.name)); }
   toolEnd(call, output) {
-    this.output.write("\x1b[2K\r");
-    this.line(`${paint(color.green, "✓")} ${paint(color.dim, call.name)} ${paint(color.dim, summarize(output))}`);
+    const elapsed = this.activityStarted ? Date.now() - this.activityStarted : 0;
+    this.stopActivity();
+    const failed = /^Tool failed:/i.test(String(output));
+    this.line(`${paint(failed ? color.red : color.green, failed ? "×" : "✓")} ${paint(color.dim, humanize(call.name))}${elapsed >= 100 ? paint(color.dim, ` · ${formatDuration(elapsed)}`) : ""}`);
   }
   assistant(text) {
-    this.output.write("\x1b[2K\r");
-    this.line(`${paint(color.cyan, "◆ HELIOS")}`);
+    this.stopActivity();
+    this.line(`${paint(color.cyan, "●")} ${paint(color.bold, "Helios")}`);
     this.line();
-    for (const line of text.trim().split("\n")) this.line(line);
+    for (const line of String(text).trim().split("\n")) this.line(`  ${line}`);
     this.line();
   }
-  error(error) { this.output.write(`\x1b[2K\r${paint(color.red, `Error: ${error}`)}\n\n`); }
-  close() { this.rl.close(); }
+  error(error) { this.stopActivity(); this.line(`${paint(color.red, "×")} ${paint(color.bold, "Helios stopped this turn")}`); this.line(`  ${String(error).replace(/\n/g, "\n  ")}\n`); }
+  close() { this.stopActivity(); this.rl.close(); }
 }
 
 function wrap(text, width) {
@@ -144,7 +162,9 @@ function wrap(text, width) {
   return lines;
 }
 
-function summarize(value) {
-  const line = String(value).replace(/\s+/g, " ").trim();
-  return line.length > 90 ? `${line.slice(0, 87)}…` : line;
+function humanize(value) { return String(value || "working").replace(/[_-]+/g, " ").replace(/^./, (letter) => letter.toUpperCase()); }
+function formatDuration(milliseconds) { return milliseconds < 1000 ? `${milliseconds}ms` : `${(milliseconds / 1000).toFixed(milliseconds < 10_000 ? 1 : 0)}s`; }
+function compactPath(value, width) {
+  const text = String(value || "not set"); const limit = Math.max(18, width - 30);
+  return text.length > limit ? `…${text.slice(-(limit - 1))}` : text;
 }

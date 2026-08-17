@@ -102,15 +102,13 @@ export async function onboard(ui, existing, env = process.env) {
   }
   await writeConfig(config, env);
   ui.line(`\n✓ Helios is ready\n  Model: ${selected}/${model}\n  Memory: ${memory.backend}\n  Channels: ${Object.keys(channels).join(", ") || "none"}\n  Security: ${config.autonomy.mode}\n`);
-  const hatch = await chooseHatch(ui);
-  if (!hatch) ui.line("\nRun `helios`.\n");
-  return { config, hatch };
+  const start = await chooseLaunch(ui);
+  if (!start) ui.line("\nRun `helios` when you're ready.\n");
+  return { config, start };
 }
 
-export async function chooseHatch(ui, platform = process.platform) {
-  if (platform !== "darwin") return null;
-  const choice = await ui.choose("Hatch in", ["TUI (Terminal)", "Desktop app", "Don't hatch right now"]);
-  return ["tui", "desktop", null][choice];
+export async function chooseLaunch(ui) {
+  return await ui.choose("Start Helios now?", ["Yes — open Helios", "Not right now"]) === 0;
 }
 
 async function localOllamaModels(fetchImpl = fetch) {

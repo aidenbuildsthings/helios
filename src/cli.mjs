@@ -18,11 +18,9 @@ import { fileURLToPath } from "node:url";
 import { formatDoctor, runDoctor } from "./doctor.mjs";
 import { readRuntime, registerRuntime, restartHelios, startHelios, stopHelios, verifyRuntimeOwner } from "./runtime.mjs";
 import { buildInfo, manageChannels, manageModels, manageTools, uninstallHelios } from "./management.mjs";
-import { runDesktopBridge } from "./desktop-bridge.mjs";
-import { openDesktop } from "./desktop.mjs";
 
 const [command = "chat", ...args] = process.argv.slice(2);
-const ui = command === "desktop-bridge" ? null : new TerminalUI();
+const ui = new TerminalUI();
 
 async function chat() {
   const requestedSession = command === "--session" ? args[0] : args[0] === "--session" ? args[1] : null;
@@ -47,10 +45,22 @@ async function chat() {
       const input = answer.trim();
       if (!input) continue;
       if (["/exit", "/quit"].includes(input)) break;
-      if (input === "/help") { ui.line("/help  /sessions  /capabilities  /autonomy  /clear  /exit\n"); continue; }
+      if (input === "/help") { printChatHelp(); continue; }
       if (input === "/clear") { await banner(); continue; }
+      if (input === "/status") {
+        ui.line(`\n  Model       ${app.config.provider}/${app.config.model}\n  Session     ${app.sessionId}\n  Mode        ${app.config.autonomy.mode}\n  Workspace   ${app.workspace}\n  Tools       ${app.agent.registry?.definitions?.().length || app.registry?.definitions?.().length || "active"}\n`); continue;
+      }
+      if (input === "/model") { ui.line(`\n  ${app.config.provider}/${app.config.model}\n  Change it with ${paintInline("helios models set")}.\n`); continue; }
+      if (input === "/tools") {
+        const tools = app.agent.registry?.definitions?.() || app.registry?.definitions?.() || [];
+        if (!tools.length) ui.line("\n  No local tools are active.\n");
+        else ui.line(`\n${tools.map((tool) => `  ${tool.name}`).join("\n")}\n`);
+        continue;
+      }
       if (input === "/sessions") {
-        app.store.sessions().forEach((session) => ui.line(`${session.id}  ${session.updated_at}`));
+        const sessions = app.store.sessions();
+        if (!sessions.length) ui.line("\n  No saved sessions.\n");
+        else ui.line(`\n${sessions.map((session) => `  ${session.id === app.sessionId ? "●" : "○"} ${session.title || "Conversation"}  ${session.id.slice(0, 8)}  ${session.updated_at}`).join("\n")}\n`);
         ui.line(); continue;
       }
       if (input === "/capabilities") {
@@ -107,18 +117,11 @@ async function main() {
   helios subagent list|remove            Manage persistent subagents
   helios cron                            Manage scheduled prompts
   helios autonomy [on|off|status]        Control autonomous execution
-  helios desktop                         Update/open only the macOS app
   helios help                            Show this command list
 `);
   } else if (command === "onboard") {
     const result = await onboard(ui, await readConfig());
-    if (result.hatch === "tui") await chat();
-    else if (result.hatch === "desktop") {
-      ui.line("Fetching the latest verified Helios Desktop release…");
-      const desktop = await openDesktop({ cliPath: fileURLToPath(import.meta.url) });
-      if (desktop.installed) ui.line(`Installed Helios Desktop ${desktop.version}.`);
-      else if (desktop.updated) ui.line(`Updated Helios Desktop to ${desktop.version}.`);
-    }
+    if (result.start) await chat();
   }
   else if (command === "update") {
     ui.line("Checking for a verified Helios release…");
@@ -259,19 +262,16 @@ async function main() {
     ui.line(`Helios browser bridge is listening on 127.0.0.1:${config.browser.port}.\nLoad the installed browser-extension folder in Chrome and click its toolbar icon.`);
     await new Promise((resolve) => { process.once("SIGINT", resolve); process.once("SIGTERM", resolve); });
     bridge.stop();
-  } else if (command === "desktop-bridge") await runDesktopBridge({ cliPath: fileURLToPath(import.meta.url) });
-  else if (command === "desktop") {
-    ui.line("Checking for the latest verified Helios Desktop release…");
-    const result = await openDesktop({ cliPath: fileURLToPath(import.meta.url) });
-    if (result.installed) ui.line(`Installed Helios Desktop ${result.version} in ${result.app}.`);
-    else if (result.updated) ui.line(`Updated Helios Desktop to ${result.version}.`);
-    else if (result.updateCheckFailed) ui.line(`Could not check for a Desktop update; opened installed version ${result.version}.`);
   } else if (command === "service") await service();
   else if (command === "chat" || command === "tui" || command === "--session") await chat();
   else throw new Error(`Unknown command: ${command}. Run \`helios --help\`.`);
 }
 
 function paintCapability(item) { return `◆ ${item.name}  [${item.id}]  ${item.uses || 0} uses`; }
+function paintInline(value) { return `\`${value}\``; }
+function printChatHelp() {
+  ui.line(`\n  Conversation\n    /status        Current model, session, mode, and workspace\n    /model         Show the active model\n    /tools         List tools available in this session\n    /sessions      List saved conversations\n    /capabilities  List learned capabilities\n\n  Controls\n    /clear         Redraw the terminal\n    /help          Show this guide\n    /exit          Leave Helios\n`);
+}
 function slug(value) { const id = String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50); if (!id) throw new Error("Name must contain letters or numbers."); return id; }
 
 main().catch((error) => { if (ui) ui.error(error.message); else console.error(error.message); process.exitCode = 1; }).finally(() => ui?.close());

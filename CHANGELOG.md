@@ -1,39 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The terminal experience now uses a compact session header, clearer composer, animated activity
+  state, private tool trails, command history, and expanded in-session slash commands.
+- Onboarding now ends with one cross-platform choice: start Helios or finish setup.
+
 ## [0.5.1] - 2026-08-08
 
 ### Added
 
-- Desktop Cron Jobs management with schedule presets, custom five-field expressions, optional
-  subagent assignment, run-now actions, enable/disable controls, persistent run history, failure
-  details, and removal through the existing local scheduler.
-- Desktop model verification and switching plus secure Telegram, Discord, and Slack management.
-- Automatic recovery for the private Desktop bridge and the most recent scheduled run missed
-  during up to 24 hours of sleep or downtime.
-- Formatted progressive chat responses, code blocks, response copying, background job failure
-  notifications, request timeouts, and consistent in-app notices.
+- Persistent cron run history, duplicate-run protection, and recovery of the most recent scheduled
+  run missed during up to 24 hours of sleep or downtime.
 
 ## [0.5.0] - 2026-08-08
 
 ### Added
 
-- Optional native macOS Desktop app with live chat, approvals, sessions, channels, model status,
-  tools, skills, learned capabilities, activity, settings, and local DMG packaging.
-- Private desktop subprocess bridge that keeps Helios configuration and credentials in their
-  existing local owners and exposes no listening network port.
-- System-default light and dark themes, expanded settings, smoother interactions, a monochrome
-  native app icon, and corrected macOS title-bar clearance.
-- Persistent model-aware subagents, automatic purpose-based delegation, and a live Desktop
-  kanban board backed by recorded subagent task state.
-- `helios subagent` interactive profile creation and checksum-verified, on-demand installation
-  through `helios desktop`.
-- Universal Intel and Apple Silicon Desktop DMGs in tagged GitHub releases.
-- A macOS-only onboarding hatch choice for Terminal, Desktop, or finishing without launching.
-
-### Changed
-
-- Agent and Desktop releases now have independent versions and update paths. `helios update`
-  updates only the agent; `helios desktop` checks, updates, and opens only the app.
+- Persistent model-aware subagents, automatic purpose-based delegation, and recorded task state.
+- `helios subagent` interactive profile creation.
 
 All notable Helios changes are recorded here and repeated in the corresponding GitHub release.
 
