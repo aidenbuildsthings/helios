@@ -30,9 +30,7 @@ export async function registerRuntime({ cliPath, env = process.env, pid = proces
 export async function verifyRuntimeOwner(record, execImpl = execFileAsync, platform = process.platform) {
   if (!record || !processExists(record.pid)) return false;
   try {
-    const { stdout } = platform === "win32"
-      ? await execImpl("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `(Get-CimInstance Win32_Process -Filter 'ProcessId = ${record.pid}').CommandLine`])
-      : await execImpl("/bin/ps", ["-p", String(record.pid), "-o", "command="]);
+    const { stdout } = await execImpl("/bin/ps", ["-p", String(record.pid), "-o", "command="]);
     const command = stdout.trim();
     return Boolean(command && (command.includes(record.cliPath) || (command.includes("helios") && command.includes("node"))));
   } catch { return false; }
@@ -46,7 +44,6 @@ export function parseHeliosProcesses(output, cliPath, ownPid = process.pid) {
 }
 
 async function discoverLegacyRuntime(cliPath, execImpl = execFileAsync) {
-  if (process.platform === "win32") return null;
   try {
     const { stdout } = await execImpl("/bin/ps", ["-axo", "pid=,command="]); const matches = parseHeliosProcesses(stdout, cliPath);
     if (matches.length > 1) throw new Error(`Found multiple Helios processes (${matches.map((item) => item.pid).join(", ")}); stop them manually before restarting.`);

@@ -31,7 +31,10 @@ async function chat() {
   const background = await readRuntime().then((record) => record && verifyRuntimeOwner(record)).catch(() => false);
   let channels; let updates; let scheduler;
   let requestStop; const stop = new Promise((resolve) => { requestStop = resolve; });
-  const onTerminate = () => requestStop(null); process.once("SIGTERM", onTerminate);
+  let activeTurn = null;
+  const onTerminate = () => requestStop(null);
+  const onInterrupt = () => { if (activeTurn) activeTurn.abort(); else requestStop(null); };
+  process.once("SIGTERM", onTerminate); process.on("SIGINT", onInterrupt);
   try {
     if (!background) {
       channels = await startChannels({ config: app.config, ui });
@@ -70,10 +73,14 @@ async function chat() {
         ui.line(); continue;
       }
       if (input === "/autonomy") { ui.line(`Autonomy: ${app.config.autonomy.mode}\nChange it with \`helios autonomy on|off\`.\n`); continue; }
-      try { ui.assistant(await app.agent.send(input)); }
-      catch (error) { ui.error(error.message); }
+      activeTurn = new AbortController();
+      try { await app.agent.send(input, activeTurn.signal); }
+      catch (error) {
+        if (activeTurn.signal.aborted || error?.name === "AbortError") ui.cancelled();
+        else ui.error(error.message);
+      } finally { activeTurn = null; }
     }
-  } finally { process.off("SIGTERM", onTerminate); channels?.stop(); updates?.stop(); scheduler?.stop(); browserBridge?.stop(); app.store.close(); }
+  } finally { process.off("SIGTERM", onTerminate); process.off("SIGINT", onInterrupt); channels?.stop(); updates?.stop(); scheduler?.stop(); browserBridge?.stop(); app.store.close(); }
 }
 
 async function service() {
@@ -96,6 +103,7 @@ async function startBrowserIfEnabled(config) {
 }
 
 async function main() {
+  if (!["darwin", "linux"].includes(process.platform)) throw new Error("Helios supports macOS and Linux.");
   if (["help", "-h", "--help"].includes(command)) {
     ui.line(`Helios — local business agent
 
@@ -270,7 +278,7 @@ async function main() {
 function paintCapability(item) { return `◆ ${item.name}  [${item.id}]  ${item.uses || 0} uses`; }
 function paintInline(value) { return `\`${value}\``; }
 function printChatHelp() {
-  ui.line(`\n  Conversation\n    /status        Current model, session, mode, and workspace\n    /model         Show the active model\n    /tools         List tools available in this session\n    /sessions      List saved conversations\n    /capabilities  List learned capabilities\n\n  Controls\n    /clear         Redraw the terminal\n    /help          Show this guide\n    /exit          Leave Helios\n`);
+  ui.line(`\n  Conversation\n    /status        Current model, session, mode, and workspace\n    /model         Show the active model\n    /tools         List tools available in this session\n    /sessions      List saved conversations\n    /capabilities  List learned capabilities\n\n  Controls\n    Tab            Complete slash commands\n    Ctrl+C         Cancel a turn; press again while idle to exit\n    /clear         Redraw the terminal\n    /help          Show this guide\n    /exit          Leave Helios\n`);
 }
 function slug(value) { const id = String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50); if (!id) throw new Error("Name must contain letters or numbers."); return id; }
 

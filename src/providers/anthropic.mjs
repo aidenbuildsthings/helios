@@ -1,4 +1,4 @@
-import { anthropicTools, checkedJson } from "./http.mjs";
+import { anthropicTools, readSSE } from "./http.mjs";
 
 function content(message) {
   if (message.role === "assistant") {
@@ -32,17 +32,24 @@ export class AnthropicProvider {
     this.model = model;
     this.fetch = fetchImpl;
   }
-  async complete({ system, messages, tools, signal }) {
-    const data = await checkedJson(await this.fetch("https://api.anthropic.com/v1/messages", {
+  async complete({ system, messages, tools, signal, onText }) {
+    const response = await this.fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": this.apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: this.model, max_tokens: 8192, system, messages: mergeTurns(messages), tools: anthropicTools(tools) }),
+      body: JSON.stringify({ model: this.model, max_tokens: 8192, system, messages: mergeTurns(messages), tools: anthropicTools(tools), stream: true }),
       signal,
-    }));
-    return {
-      text: data.content?.filter((item) => item.type === "text").map((item) => item.text).join("\n") || "",
-      calls: data.content?.filter((item) => item.type === "tool_use").map((item) => ({ id: item.id, name: item.name, input: item.input })) || [],
-      usage: data.usage || null,
-    };
+    });
+    const blocks = new Map(); let text = ""; let usage = null; let completed = false;
+    await readSSE(response, (event) => {
+      if (event.type === "error") throw new Error(event.error?.message || "Anthropic streaming response failed.");
+      if (event.type === "message_start") usage = event.message?.usage || usage;
+      if (event.type === "content_block_start" && event.content_block?.type === "tool_use") blocks.set(event.index, { id: event.content_block.id, name: event.content_block.name, json: "" });
+      if (event.type === "content_block_delta" && event.delta?.type === "text_delta") { text += event.delta.text || ""; onText?.(event.delta.text || ""); }
+      if (event.type === "content_block_delta" && event.delta?.type === "input_json_delta") { const block = blocks.get(event.index); if (block) block.json += event.delta.partial_json || ""; }
+      if (event.type === "message_delta" && event.usage) usage = { ...(usage || {}), ...event.usage };
+      if (event.type === "message_stop") completed = true;
+    });
+    if (!completed) throw new Error("Anthropic stream closed before message_stop.");
+    return { text, calls: [...blocks.values()].map((block) => ({ id: block.id, name: block.name, input: JSON.parse(block.json || "{}") })), usage };
   }
 }

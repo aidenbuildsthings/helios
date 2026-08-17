@@ -10,15 +10,17 @@ export function prepareRawInput(input) {
 }
 
 const SPINNER = ["·", "✦", "✧", "✦"];
+export const CHAT_COMMANDS = ["/status", "/model", "/tools", "/sessions", "/capabilities", "/autonomy", "/clear", "/help", "/exit"];
 
 export class TerminalUI {
   constructor({ input = stdin, output = stdout } = {}) {
     this.input = input;
     this.output = output;
-    this.rl = readline.createInterface({ input, output, historySize: 200, removeHistoryDuplicates: true });
+    this.rl = readline.createInterface({ input, output, historySize: 200, removeHistoryDuplicates: true, completer: completeCommand });
     this.activityTimer = null;
     this.activityStarted = 0;
     this.activityText = "";
+    this.streaming = false;
   }
   line(text = "") { this.output.write(`${text}\n`); }
   banner(meta) {
@@ -147,6 +149,13 @@ export class TerminalUI {
     for (const line of String(text).trim().split("\n")) this.line(`  ${line}`);
     this.line();
   }
+  responseStart() {
+    this.stopActivity(); this.streaming = true;
+    this.line(`${paint(color.cyan, "●")} ${paint(color.bold, "Helios")}`); this.line(); this.output.write("  ");
+  }
+  responseDelta(delta) { this.output.write(String(delta).replace(/\n/g, "\n  ")); }
+  responseEnd() { if (!this.streaming) return; this.streaming = false; this.output.write("\n\n"); }
+  cancelled() { this.stopActivity(); if (this.streaming) { this.streaming = false; this.output.write("\n"); } this.line(`${paint(color.amber, "↳")} Turn cancelled. Type a correction or a new request.\n`); }
   error(error) { this.stopActivity(); this.line(`${paint(color.red, "×")} ${paint(color.bold, "Helios stopped this turn")}`); this.line(`  ${String(error).replace(/\n/g, "\n  ")}\n`); }
   close() { this.stopActivity(); this.rl.close(); }
 }
@@ -167,4 +176,10 @@ function formatDuration(milliseconds) { return milliseconds < 1000 ? `${millisec
 function compactPath(value, width) {
   const text = String(value || "not set"); const limit = Math.max(18, width - 30);
   return text.length > limit ? `…${text.slice(-(limit - 1))}` : text;
+}
+
+export function completeCommand(line) {
+  if (!line.startsWith("/")) return [[], line];
+  const hits = CHAT_COMMANDS.filter((command) => command.startsWith(line));
+  return [hits.length ? hits : CHAT_COMMANDS, line];
 }

@@ -18,18 +18,10 @@ test("runtime ownership requires the recorded Helios command", async () => {
   assert.equal(await verifyRuntimeOwner({ pid: process.pid, cliPath: "/tmp/helios/src/cli.mjs" }, async () => ({ stdout: "unrelated-process" }), "linux"), false);
 });
 
-test("Windows runtime ownership reads the process command line", async () => {
-  const record = { pid: process.pid, cliPath: "C:\\Users\\aiden\\Helios\\src\\cli.mjs" };
-  assert.equal(await verifyRuntimeOwner(record, async (command) => {
-    assert.equal(command, "powershell.exe");
-    return { stdout: `node.exe "${record.cliPath}" service` };
-  }, "win32"), true);
-});
-
 test("legacy process discovery stays inside the current installation root", () => {
   const install = path.join(os.tmpdir(), "share", "helios"); const cli = path.join(install, "0.2.2-123", "src", "cli.mjs");
   const matches = parseHeliosProcesses(`101 node ${path.join(install, "0.2.1-100", "src", "cli.mjs")}\n102 node ${path.join(os.tmpdir(), "other", "helios", "src", "cli.mjs")}`, cli, 999);
-  assert.deepEqual(matches.map((item) => item.pid), process.platform === "win32" ? [] : [101]);
+  assert.deepEqual(matches.map((item) => item.pid), [101]);
 });
 
 test("stop terminates only an ownership-verified Helios process", async () => {

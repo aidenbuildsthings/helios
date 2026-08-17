@@ -9,8 +9,8 @@ const REDIRECT_URI = "http://localhost:1455/auth/callback";
 const base64url = (value) => Buffer.from(value).toString("base64url");
 
 function openBrowser(url) {
-  const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
-  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+  const command = process.platform === "darwin" ? "open" : "xdg-open";
+  const args = [url];
   spawn(command, args, { detached: true, stdio: "ignore" }).unref();
 }
 

@@ -6,18 +6,11 @@ Install Helios on macOS or Linux:
 curl -fsSL https://helios.scriptspace.xyz/install.sh | bash
 ```
 
-Install Helios on Windows from PowerShell:
-
-```powershell
-powershell -c "irm https://helios.scriptspace.xyz/install.ps1 | iex"
-```
-
 Then run `helios onboard`.
 
 Installation creates three locations:
 
-- `~/.local/share/helios/` and `~/.local/bin/helios` on macOS/Linux
-- `%LOCALAPPDATA%\Helios` and its `bin\helios.cmd` shim on Windows
+- `~/.local/share/helios/` and `~/.local/bin/helios`
 - `~/.helios/` — private configuration, memory, sessions, skills, and logs
 
 The installer creates `~/.helios/` with owner-only permissions and never overwrites its contents during updates.
@@ -68,7 +61,8 @@ is reachable.
 ## Terminal experience
 
 Run `helios` to open the interactive terminal. It shows the active model, session, approval mode,
-workspace, live thinking state, and compact tool progress. Use arrow keys for input history.
+workspace, live streamed responses, and compact tool progress. Use arrow keys for input history,
+Tab to complete slash commands, and Ctrl+C to cancel a running turn without closing Helios.
 In-session commands include `/status`, `/model`, `/tools`, `/sessions`, `/capabilities`, `/clear`,
 `/help`, and `/exit`.
 
@@ -143,12 +137,12 @@ accessibility trees, press controls, fill text fields, and send shortcuts. Check
 system permissions with:
 
 ```sh
-helios computer status
+helios tools list
 ```
 
-macOS requires Accessibility and Screen Recording access for the terminal running Helios. The bundled xa11y runtime also ships native Windows and Linux builds.
+macOS requires Accessibility and Screen Recording access for the terminal running Helios. Linux uses xa11y's native accessibility runtime.
 
-On Linux desktops, install `libsecret-tools` to let onboarding store credentials in the system Secret Service. Headless Linux/VPS deployments can provide the same secret names through the service environment. Windows secrets are encrypted for the current user with DPAPI; macOS continues to use Keychain.
+On Linux desktops, install `libsecret-tools` to let onboarding store credentials in the system Secret Service. Headless Linux/VPS deployments can provide the same secret names through the service environment. macOS uses Keychain.
 
 ## Autonomy
 

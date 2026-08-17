@@ -10,5 +10,5 @@ test("config writes atomically with private permissions", async () => {
   const env = { HELIOS_HOME: home };
   await writeConfig({ version: 1, provider: "openai", credentials: {} }, env);
   assert.equal((await readConfig(env)).provider, "openai");
-  if (process.platform !== "win32") assert.equal((await stat(path.join(home, "config.json"))).mode & 0o777, 0o600);
+  assert.equal((await stat(path.join(home, "config.json"))).mode & 0o777, 0o600);
 });

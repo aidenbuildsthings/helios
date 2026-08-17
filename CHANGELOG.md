@@ -7,6 +7,10 @@
 - The terminal experience now uses a compact session header, clearer composer, animated activity
   state, private tool trails, command history, and expanded in-session slash commands.
 - Onboarding now ends with one cross-platform choice: start Helios or finish setup.
+- OpenAI, ChatGPT/Codex, Anthropic, and Ollama responses now stream into the terminal.
+- Ctrl+C cancels only the active turn and immediately returns to a correction prompt.
+- Long sessions keep complete local history while sending a bounded, automatically compacted context.
+- Tab completes slash commands. Helios releases now target macOS and Linux only.
 
 ## [0.5.1] - 2026-08-08
 
@@ -28,15 +32,12 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 
 ### Added
 
-- Windows installation through the checksum-verified `install.ps1` release asset and `helios.cmd` user-PATH shim.
-- Windows automatic updates, background process ownership checks, and start/stop/restart support.
-- Windows DPAPI-protected credential persistence and Linux Secret Service integration.
-- Versioned ZIP release archives alongside the existing macOS/Linux tarballs.
+- Linux Secret Service credential storage.
 
 ### Changed
 
 - The shell installer now explicitly supports macOS and Linux and reports Linux keyring or PATH prerequisites when needed.
-- Browser tokens, provider keys, OAuth sessions, and channel credentials use the native secure backend on every desktop platform.
+- Browser tokens, provider keys, OAuth sessions, and channel credentials use the native secure backend on macOS and Linux.
 
 ## [0.3.2] - 2026-08-06
 
@@ -75,18 +76,6 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 - Uninstall refuses source checkouts and unrecognized installation paths.
 - Browser control remains disabled until explicitly enabled and uses the bundled extension instead of downloading a large executable browser runtime.
 
-## [0.2.4] - 2026-08-05
-
-### Fixed
-
-- Align the legacy Unix process-discovery test with Helios's explicit Windows restart behavior.
-
-## [0.2.3] - 2026-08-05
-
-### Fixed
-
-- Cross-platform operational tests now use native path and permission semantics on Windows.
-
 ## [0.2.2] - 2026-08-05
 
 ### Added
@@ -99,7 +88,6 @@ All notable Helios changes are recorded here and repeated in the corresponding G
 
 ### Fixed
 
-- Windows CI now validates configuration persistence without applying unsupported Unix permission-bit assertions.
 - GitHub workflow actions use their current Node 24-compatible major versions.
 
 ## [0.2.0] - 2026-08-05

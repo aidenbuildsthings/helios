@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 import test from "node:test";
-import { prepareRawInput, TerminalUI } from "../src/tui/ui.mjs";
+import { completeCommand, prepareRawInput, TerminalUI } from "../src/tui/ui.mjs";
 import { stripAnsi } from "../src/tui/theme.mjs";
 
 test("raw terminal input resumes after readline pauses stdin", () => {
@@ -82,4 +82,9 @@ test("conversation chrome keeps status compact and tool output private", () => {
   assert.doesNotMatch(plain, /private file contents/);
   assert.match(plain, /● Helios\n\n  Ready to work\./);
   ui.close(); input.destroy(); output.destroy();
+});
+
+test("slash commands autocomplete from a shared command catalog", () => {
+  assert.deepEqual(completeCommand("/sta")[0], ["/status"]);
+  assert.ok(completeCommand("/")[0].includes("/sessions"));
 });

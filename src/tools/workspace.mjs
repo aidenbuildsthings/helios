@@ -11,7 +11,7 @@ export function isHighRiskCommand(command, args, workspace) {
   const name = path.basename(command).toLowerCase();
   const joined = args.join(" ").toLowerCase();
   if (["sudo", "shutdown", "reboot", "halt", "launchctl", "systemctl"].includes(name)) return true;
-  if (["sh", "bash", "zsh", "fish", "osascript", "powershell", "pwsh", "cmd", "ssh", "scp", "curl", "wget", "nc", "ncat", "socat", "security", "secret-tool"].includes(name)) return true;
+  if (["sh", "bash", "zsh", "fish", "osascript", "ssh", "scp", "curl", "wget", "nc", "ncat", "socat", "security", "secret-tool"].includes(name)) return true;
   if (args.some((arg) => path.isAbsolute(arg) || arg.split(/[\\/]/).includes(".."))) return true;
   if (name === "git" && /(^|\s)(reset\s+--hard|clean\s+-[^ ]*[fd])/.test(joined)) return true;
   if (["npm", "pnpm", "yarn"].includes(name) && /(^|\s)(publish|unpublish)(\s|$)/.test(joined)) return true;

@@ -32,3 +32,18 @@ test("agent surfaces an empty provider response instead of claiming Done", async
   const agent = await new Agent({ provider, registry: new ToolRegistry(), store, sessionId: "s", workspace: "/tmp" }).initialize();
   await assert.rejects(() => agent.send("hello"), /without returning text/);
 });
+
+test("agent forwards streamed text and does not persist a partial assistant on cancellation", async () => {
+  const events = []; const saved = [];
+  const provider = { complete: async ({ onText, signal }) => {
+    onText("partial");
+    if (signal.aborted) throw Object.assign(new Error("cancelled"), { name: "AbortError" });
+    await new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(Object.assign(new Error("cancelled"), { name: "AbortError" })), { once: true }));
+  } };
+  const store = { ensureSession() {}, messages: () => [], memory: async () => "", append: (_id, value) => saved.push(value) };
+  const agent = await new Agent({ provider, registry: new ToolRegistry(), store, sessionId: "s", workspace: "/tmp", events: { responseStart: () => events.push("start"), responseDelta: (delta) => events.push(delta) } }).initialize();
+  const controller = new AbortController(); const pending = agent.send("hello", controller.signal); setImmediate(() => controller.abort());
+  await assert.rejects(pending, /cancelled/);
+  assert.deepEqual(events, ["start", "partial"]);
+  assert.deepEqual(saved.map((message) => message.role), ["user"]);
+});

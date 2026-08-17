@@ -11,7 +11,7 @@ Helios is security-focused, but no autonomous agent or software system can be gu
 - Remote sessions do not receive file, command, browser, computer-use, delegation, learning, or skill tools.
 - Downloaded skills are instructions only. Helios does not install or execute their scripts, plugins, or package hooks.
 - Browser and Ollama Local listeners bind to loopback. Never expose them directly to a public network.
-- Secrets use macOS Keychain, Windows DPAPI, or Linux Secret Service. Headless Linux/VPS operators can supply secrets through the service environment; Helios does not write them to its JSON configuration.
+- Secrets use macOS Keychain or Linux Secret Service. Headless Linux/VPS operators can supply secrets through the service environment; Helios does not write them to its JSON configuration.
 
 ## VPS deployment
 

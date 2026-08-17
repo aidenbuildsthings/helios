@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { accountIdFromToken, refreshOpenAI } from "../auth/openai-oauth.mjs";
-import { openAITools } from "./http.mjs";
+import { openAITools, readSSE } from "./http.mjs";
+import { assembleOpenAIEvents } from "./openai.mjs";
 
 function input(messages) {
   return messages.flatMap((message) => {
@@ -10,28 +11,8 @@ function input(messages) {
   });
 }
 
-async function events(response) {
-  if (!response.ok) throw new Error(await response.text());
-  const text = await response.text();
-  return text.split(/\r?\n\r?\n/).flatMap((block) => block.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim())).filter((line) => line && line !== "[DONE]").map((line) => JSON.parse(line));
-}
-
 export function assembleCodexEvents(stream) {
-  const completed = [...stream].reverse().find((event) => event.type === "response.completed" || event.type === "response.done");
-  const output = completed?.response?.output || [];
-  const completedText = output.flatMap((item) => item.content || []).filter((item) => item.type === "output_text").map((item) => item.text).join("\n");
-  const deltaText = stream.filter((event) => event.type === "response.output_text.delta").map((event) => event.delta || "").join("");
-  const callItems = [
-    ...output.filter((item) => item.type === "function_call"),
-    ...stream.filter((event) => event.type === "response.output_item.done" && event.item?.type === "function_call").map((event) => event.item),
-  ];
-  const uniqueCalls = new Map();
-  for (const item of callItems) {
-    const id = item.call_id || item.id;
-    if (!id || uniqueCalls.has(id)) continue;
-    uniqueCalls.set(id, { id, name: item.name, input: JSON.parse(item.arguments || "{}") });
-  }
-  return { text: completedText || deltaText, calls: [...uniqueCalls.values()], usage: completed?.response?.usage || null };
+  return assembleOpenAIEvents(stream);
 }
 
 export class OpenAICodexProvider {
@@ -42,7 +23,7 @@ export class OpenAICodexProvider {
     await this.saveAuth(this.auth);
     return this.auth.access;
   }
-  async complete({ system, messages, tools, signal }) {
+  async complete({ system, messages, tools, signal, onText }) {
     const token = await this.token();
     const accountId = accountIdFromToken(token);
     if (!accountId) throw new Error("OpenAI login token is missing a ChatGPT account identifier.");
@@ -52,7 +33,12 @@ export class OpenAICodexProvider {
       headers: { authorization: `Bearer ${token}`, "chatgpt-account-id": accountId, originator: "helios", "user-agent": "helios/0.1.0", "openai-beta": "responses=experimental", accept: "text/event-stream", "content-type": "application/json", session_id: session, "x-client-request-id": session },
       body: JSON.stringify({ model: this.model, store: false, stream: true, instructions: system, input: input(messages), tools: openAITools(tools), tool_choice: "auto", parallel_tool_calls: true, include: ["reasoning.encrypted_content"] }),
     });
-    const stream = await events(response);
+    const stream = [];
+    await readSSE(response, (event) => {
+      if (event.type === "error" || event.type === "response.failed" || event.type === "response.incomplete") throw new Error(event.error?.message || event.response?.error?.message || event.response?.incomplete_details?.reason || "ChatGPT streaming response failed.");
+      stream.push(event); if (event.type === "response.output_text.delta") onText?.(event.delta || "");
+    });
+    if (!stream.some((event) => event.type === "response.completed" || event.type === "response.done")) throw new Error("ChatGPT stream closed before response.completed.");
     return assembleCodexEvents(stream);
   }
 }

@@ -21,7 +21,7 @@ test("update verifies the installer before running it", async () => {
   const spawnImpl = (command, args, options) => {
     spawned = { command, args, options }; const child = new EventEmitter(); queueMicrotask(() => child.emit("exit", 0, null)); return child;
   };
-  const result = await installLatestUpdate({ fetchImpl, spawnImpl, env: { PATH: "/bin" }, platform: "linux" });
+  const result = await installLatestUpdate({ fetchImpl, spawnImpl, env: { PATH: "/bin" } });
   assert.equal(result.updated, true); assert.equal(spawned.command, "/bin/bash"); assert.equal(spawned.options.env.HELIOS_VERSION, "9.9.9");
   assert.equal(requested.length, 3);
 });
@@ -30,19 +30,5 @@ test("update refuses a checksum mismatch", async () => {
   const fetchImpl = async (url) => String(url).includes("/releases?")
     ? new Response(JSON.stringify([{ tag_name: "v9.9.9", html_url: "https://example.test/release" }]))
     : String(url).endsWith("/install.sh") ? new Response("installer") : new Response(`${"0".repeat(64)}  install.sh\n`);
-  await assert.rejects(() => installLatestUpdate({ fetchImpl, platform: "linux" }), /SHA-256/);
-});
-
-test("Windows update verifies and runs the PowerShell installer", async () => {
-  const installer = "Write-Host 'ready'\n"; const digest = crypto.createHash("sha256").update(installer).digest("hex");
-  const fetchImpl = async (url) => String(url).includes("/releases?")
-    ? new Response(JSON.stringify([{ tag_name: "v9.9.9", html_url: "https://example.test/release" }]))
-    : String(url).endsWith("/install.ps1") ? new Response(installer) : new Response(`${digest}  install.ps1\n`);
-  let spawned;
-  const spawnImpl = (command, args, options) => { spawned = { command, args, options }; const child = new EventEmitter(); queueMicrotask(() => child.emit("exit", 0, null)); return child; };
-  const result = await installLatestUpdate({ fetchImpl, spawnImpl, env: { Path: "C:\\Windows" }, platform: "win32" });
-  assert.equal(result.updated, true);
-  assert.equal(spawned.command, "powershell.exe");
-  assert.deepEqual(spawned.args.slice(0, 4), ["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass"]);
-  assert.equal(spawned.options.env.HELIOS_VERSION, "9.9.9");
+  await assert.rejects(() => installLatestUpdate({ fetchImpl }), /SHA-256/);
 });

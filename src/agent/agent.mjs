@@ -1,4 +1,5 @@
 import { buildSystemPrompt } from "./prompt.mjs";
+import { compactContext } from "./context.mjs";
 
 export class Agent {
   constructor({ provider, registry, store, capabilityStore, sessionId, workspace, learning = true, events = {}, maxToolRounds = 40 }) {
@@ -21,20 +22,29 @@ export class Agent {
     this.store.append(this.sessionId, user);
     for (let round = 0; round < this.maxToolRounds; round += 1) {
       this.events.status?.("thinking");
+      let streamed = false;
       const result = await this.provider.complete({
         system: this.system,
-        messages: this.messages,
+        messages: compactContext(this.messages),
         tools: this.registry.definitions(),
         signal,
+        onText: (delta) => {
+          if (!delta) return;
+          if (!streamed) { streamed = true; this.events.responseStart?.(); }
+          this.events.responseDelta?.(delta);
+        },
       });
       const assistant = { role: "assistant", content: result.text, calls: result.calls };
       this.messages.push(assistant);
       this.store.append(this.sessionId, assistant);
+      if (streamed && result.calls.length) this.events.responseEnd?.();
       if (!result.calls.length) {
         this.events.status?.("ready");
         if (!result.text?.trim()) {
           throw new Error("The model completed without returning text or a tool call. Helios did not treat the empty response as success.");
         }
+        if (streamed) this.events.responseEnd?.();
+        else { this.events.responseStart?.(); this.events.responseDelta?.(result.text); this.events.responseEnd?.(); }
         await this.store.log?.("Helios", result.text);
         return result.text;
       }
@@ -43,7 +53,10 @@ export class Agent {
         const tool = this.registry.get(call.name);
         let output;
         try { output = tool ? await tool.run(call.input, { signal }) : `Unknown tool: ${call.name}`; }
-        catch (error) { output = `Tool failed: ${error.message}`; }
+        catch (error) {
+          if (signal?.aborted || error?.name === "AbortError") throw error;
+          output = `Tool failed: ${error.message}`;
+        }
         await this.store.log?.(String(output).startsWith("Tool failed:") ? "Error" : "Tool", `${call.name}\n\n${String(output).slice(0, 4000)}`);
         const toolMessage = { role: "tool", callId: call.id, content: String(output) };
         this.messages.push(toolMessage);

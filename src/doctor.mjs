@@ -31,7 +31,7 @@ export async function runDoctor({ env = process.env, platform = process.platform
     } else if (metadata.credential) results.push(result("pass", "Provider credentials", `${metadata.credential} is available.`));
   }
   if (Object.keys(config.credentials || {}).length) results.push(result("fail", "Secret storage", "Plaintext credentials remain in config.json.", "Run `helios onboard` to migrate them to Keychain or environment variables."));
-  else results.push(result("pass", "Secret storage", platform === "darwin" ? "No plaintext credentials; macOS Keychain is enabled." : platform === "win32" ? "No plaintext credentials; Windows DPAPI protection is enabled." : "No plaintext credentials; Linux Secret Service or the service environment is enabled."));
+  else results.push(result("pass", "Secret storage", platform === "darwin" ? "No plaintext credentials; macOS Keychain is enabled." : "No plaintext credentials; Linux Secret Service or the service environment is enabled."));
   if (config.browser.enabled) {
     const token = await readSecretImpl("HELIOS_BROWSER_TOKEN", env);
     if (!token) results.push(result("fail", "Browser tool", "HELIOS_BROWSER_TOKEN is missing.", "Run `helios tools enable browser`."));
@@ -56,9 +56,7 @@ export async function runDoctor({ env = process.env, platform = process.platform
     const header = await readFile(locations.database).then((data) => data.subarray(0, 16).toString("utf8"));
     results.push(header === "SQLite format 3\u0000" ? result("pass", "State database", locations.database) : result("fail", "State database", "The database header is invalid.", "Restore ~/.helios/helios.db from backup."));
   } catch (error) { results.push(error?.code === "ENOENT" ? result("warn", "State database", "Not created yet; it will be created on first run.") : result("fail", "State database", error.message)); }
-  if (platform !== "win32") {
-    try { const mode = (await lstat(locations.config)).mode & 0o777; results.push(mode === 0o600 ? result("pass", "Config permissions", "0600") : result("fail", "Config permissions", mode.toString(8), `Run: chmod 600 ${locations.config}`)); } catch {}
-  }
+  try { const mode = (await lstat(locations.config)).mode & 0o777; results.push(mode === 0o600 ? result("pass", "Config permissions", "0600") : result("fail", "Config permissions", mode.toString(8), `Run: chmod 600 ${locations.config}`)); } catch {}
   const runtime = await readRuntime(env).catch(() => null);
   if (!runtime) results.push(result("warn", "Runtime", "Helios is not currently registered as running."));
   else if (await verifyRuntimeOwner(runtime)) results.push(result("pass", "Runtime", `Helios is running as PID ${runtime.pid}.`));

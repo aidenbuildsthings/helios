@@ -69,6 +69,9 @@ export async function createApp({ ui, sessionId, env = process.env, approvalMode
       status: (status) => ui.status(status),
       toolStart: (call) => ui.toolStart(call),
       toolEnd: (call, output) => ui.toolEnd(call, output),
+      responseStart: () => ui.responseStart(),
+      responseDelta: (delta) => ui.responseDelta(delta),
+      responseEnd: () => ui.responseEnd(),
     },
   }).initialize();
   return { agent, config, store, capabilityStore, sessionId: id, workspace };
