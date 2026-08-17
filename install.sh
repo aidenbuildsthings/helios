@@ -61,4 +61,4 @@ if [ "$(uname -s)" = "Linux" ] && ! command -v secret-tool >/dev/null 2>&1; then
   echo "Linux note: install libsecret-tools for secure interactive credential storage, or provide credentials through the service environment."
 fi
 case ":$PATH:" in *":$BIN_DIR:"*) ;; *) echo "Add $BIN_DIR to PATH if the helios command is not found." ;; esac
-echo "Run: helios onboard"
+echo "Run: helios"

@@ -76,8 +76,8 @@ test("conversation chrome keeps status compact and tool output private", () => {
   ui.toolEnd({ name: "read_file" }, "private file contents");
   ui.assistant("Ready to work.");
   const plain = stripAnsi(rendered);
-  assert.match(plain, /H E L I O S  local business agent/);
-  assert.match(plain, /model openai\/gpt-test/);
+  assert.match(plain, /██╗  ██╗███████╗/);
+  assert.match(plain, /MODEL  openai\/gpt-test/);
   assert.match(plain, /✓ Read file/);
   assert.doesNotMatch(plain, /private file contents/);
   assert.match(plain, /● Helios\n\n  Ready to work\./);

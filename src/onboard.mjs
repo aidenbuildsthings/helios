@@ -1,3 +1,4 @@
+import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { writeConfig } from "./config.mjs";
@@ -6,6 +7,7 @@ import { loginOpenAI } from "./auth/openai-oauth.mjs";
 import { CHANNELS } from "./channels/index.mjs";
 import { readSecret, writeSecret } from "./secrets.mjs";
 import crypto from "node:crypto";
+import { preparePermissions } from "./permissions.mjs";
 
 const featureChoices = [
   ["updates", "Update checks every 6 hours"], ["scheduler", "User cron jobs"],
@@ -15,10 +17,10 @@ const featureChoices = [
 ];
 
 export async function onboard(ui, existing, env = process.env) {
-  ui.line("\n◆ HELIOS SETUP");
-  ui.line("Use ↑/↓ and Enter. Multi-select screens use Space.\n");
+  ui.setupBanner();
+  ui.line("  Use ↑/↓ and Enter. Multi-select screens use Space.\n");
 
-  ui.line("1/7  MODEL");
+  ui.step(1, 8, "Oracle", "Choose the mind behind Helios.");
   const ids = Object.keys(PROVIDERS);
   const selected = ids[await ui.choose("How should Helios think?", ids.map((id) => PROVIDERS[id].label))];
   const metadata = PROVIDERS[selected];
@@ -37,11 +39,12 @@ export async function onboard(ui, existing, env = process.env) {
   }
   const model = (await ui.question(`Model [${defaultModel}]: `)).trim() || defaultModel;
 
-  ui.line("\n2/7  WORKSPACE");
+  ui.step(2, 8, "Domain", "Choose where Helios may work.");
   const workspaceInput = (await ui.question(`Workspace [${existing.workspace || process.cwd()}]: `)).trim();
   const workspace = path.resolve(workspaceInput || existing.workspace || process.cwd());
+  await access(workspace, constants.R_OK | constants.W_OK).catch(() => { throw new Error(`Workspace is not readable and writable: ${workspace}`); });
 
-  ui.line("\n3/7  MEMORY");
+  ui.step(3, 8, "Memory", "Keep durable knowledge private or in your vault.");
   const memoryChoice = await ui.choose("Where should durable memory live?", ["Local private storage", "Obsidian vault"]);
   let memory = { backend: "local", obsidian: null, logs: { user: false, assistant: false, tools: true, errors: true } };
   if (memoryChoice === 1) {
@@ -56,7 +59,7 @@ export async function onboard(ui, existing, env = process.env) {
     memory = { backend: "obsidian", obsidian: { vaultPath, folder, memoryNote: "Memory.md", instructionsNote: "Instructions.md", logsFolder: "Logs" }, logs: { user: chosenLogs.includes(0), assistant: chosenLogs.includes(1), tools: chosenLogs.includes(2), errors: chosenLogs.includes(3) } };
   }
 
-  ui.line("\n4/7  CHANNELS");
+  ui.step(4, 8, "Messengers", "Let Helios answer only through channels you trust.");
   const channelIds = Object.keys(CHANNELS);
   const selectedChannels = await ui.checkbox("Connect messaging channels", channelIds.map((id) => CHANNELS[id].label), channelIds.map((id, index) => existing.channels?.[id]?.enabled ? index : -1).filter((index) => index >= 0));
   const channels = {};
@@ -76,15 +79,15 @@ export async function onboard(ui, existing, env = process.env) {
     channels[id] = configured;
   }
 
-  ui.line("\n5/7  FEATURES");
+  ui.step(5, 8, "Gifts", "Choose the powers Helios awakens with.");
   const enabledFeatures = await ui.checkbox("Enable out-of-the-box features", featureChoices.map(([, label]) => label), featureChoices.map(([key], index) => existing[key]?.enabled ? index : -1).filter((index) => index >= 0));
   const enabled = new Set(enabledFeatures.map((index) => featureChoices[index][0]));
 
-  ui.line("\n6/7  SECURITY");
+  ui.step(6, 8, "Guardrails", "Decide when actions require your blessing.");
   const autonomyIndex = await ui.choose("Action approval policy", ["Guarded — approve writes, commands, and external actions (recommended)", "Autonomous — ordinary actions run without approval"]);
   if (autonomyIndex === 1) ui.line("High-risk commands, skill installation, publishing, and capability changes still require approval.");
 
-  ui.line("\n7/7  REVIEW");
+  ui.step(7, 8, "Permissions", "Grant selected powers once, then verify them.");
   const config = {
     ...existing, version: 2, provider: selected, model, workspace, credentials: {}, memory, channels,
     autonomy: { mode: autonomyIndex === 0 ? "guarded" : "autonomous" },
@@ -101,7 +104,9 @@ export async function onboard(ui, existing, env = process.env) {
     await writeSecret("HELIOS_BROWSER_TOKEN", crypto.randomBytes(32).toString("hex"));
   }
   await writeConfig(config, env);
-  ui.line(`\n✓ Helios is ready\n  Model: ${selected}/${model}\n  Memory: ${memory.backend}\n  Channels: ${Object.keys(channels).join(", ") || "none"}\n  Security: ${config.autonomy.mode}\n`);
+  await preparePermissions({ ui, config, env });
+  ui.step(8, 8, "Dawn", "Your agent is configured and ready.");
+  ui.line(`\n${"  "}☀ Helios has risen\n  Model: ${selected}/${model}\n  Memory: ${memory.backend}\n  Channels: ${Object.keys(channels).join(", ") || "local only"}\n  Security: ${config.autonomy.mode}\n`);
   const start = await chooseLaunch(ui);
   if (!start) ui.line("\nRun `helios` when you're ready.\n");
   return { config, start };

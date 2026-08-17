@@ -24,6 +24,11 @@ const ui = new TerminalUI();
 
 async function chat() {
   const requestedSession = command === "--session" ? args[0] : args[0] === "--session" ? args[1] : null;
+  const initial = await readConfig();
+  if (!initial.provider) {
+    const result = await onboard(ui, initial);
+    if (!result.start) return;
+  }
   const browserBridge = await startBrowserIfEnabled(await readConfig());
   let app;
   try { app = await createApp({ ui, sessionId: requestedSession }); }
@@ -41,7 +46,13 @@ async function chat() {
       updates = startUpdateChecks({ config: app.config, ui });
       scheduler = await startScheduler({ config: app.config, ui });
     }
-    const banner = async () => ui.banner({ model: `${app.config.provider}/${app.config.model}`, session: app.sessionId.slice(0, 8), workspace: app.workspace, capabilities: (await app.capabilityStore.list()).length, autonomy: app.config.autonomy.mode });
+    const banner = async () => ui.banner({
+      model: `${app.config.provider}/${app.config.model}`, session: app.sessionId.slice(0, 8), workspace: app.workspace,
+      capabilities: (await app.capabilityStore.list()).length, autonomy: app.config.autonomy.mode,
+      memory: app.config.memory.backend,
+      tools: app.agent.registry.definitions().map((tool) => tool.name),
+      channels: Object.entries(app.config.channels || {}).filter(([, value]) => value.enabled).map(([id]) => id),
+    });
     await banner();
     while (true) {
       const answer = await Promise.race([ui.prompt(), stop]); if (answer == null) break;

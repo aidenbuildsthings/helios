@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Onboarding now uses a Helios-specific solar and ancient Greek visual identity and verifies
+  selected computer-control permissions before declaring setup complete.
+- The conversation TUI now presents a bordered solar dashboard with model, tools, memory,
+  channels, session, workspace, and approval state.
+- Running `helios` on a new installation now opens onboarding automatically.
+
 ## [0.6.0] - 2026-08-17
 
 ### Changed

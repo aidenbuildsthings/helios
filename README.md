@@ -6,7 +6,8 @@ Install Helios on macOS or Linux:
 curl -fsSL https://helios.scriptspace.xyz/install.sh | bash
 ```
 
-Then run `helios onboard`.
+Then run `helios`. A new installation opens onboarding automatically; `helios onboard` remains
+available whenever you want to reconfigure it.
 
 Installation creates three locations:
 
@@ -108,6 +109,16 @@ library updates; the extension is smaller and works with the browser session the
 Run `helios onboard` and use the arrow keys to choose ChatGPT/Codex sign-in, an
 Anthropic or OpenAI API key, Ollama Local, Ollama Cloud, local or Obsidian memory,
 Telegram/Slack/Discord, autonomy, scheduled jobs, subagents, skills, and self-improvement.
+
+If computer control is selected, onboarding verifies Accessibility and Screen Recording before
+declaring Helios ready. On macOS, Helios opens the correct Privacy & Security pane and waits while
+you grant access; Apple requires this consent to be given manually. On Linux, the same step verifies
+that the current graphical session exposes accessibility and screen-capture services. The temporary
+test frame used for verification is discarded and never written to disk.
+
+If browser control is selected, onboarding also starts the authenticated local bridge, opens
+Chrome's extension page, shows the exact bundled extension folder, and verifies that the user has
+paired a tab before setup completes. Chrome requires the user to approve loading the extension.
 
 With Obsidian selected, Helios creates `Memory.md`, `Instructions.md`, and dated Markdown
 logs inside the chosen vault folder. These remain ordinary user-owned notes. Conversation

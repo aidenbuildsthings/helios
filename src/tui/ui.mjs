@@ -10,6 +10,20 @@ export function prepareRawInput(input) {
 }
 
 const SPINNER = ["·", "✦", "✧", "✦"];
+const SMALL_WORDMARK = [
+  "█  █ █▀▀ █   █ █▀▀█ █▀▀",
+  "█▀▀█ █▀▀ █   █ █  █ ▀▀█",
+  "▀  ▀ ▀▀▀ ▀▀▀ ▀ ▀▀▀▀ ▀▀▀",
+];
+const LARGE_WORDMARK = [
+  "██╗  ██╗███████╗██╗     ██╗ ██████╗ ███████╗",
+  "██║  ██║██╔════╝██║     ██║██╔═══██╗██╔════╝",
+  "███████║█████╗  ██║     ██║██║   ██║███████╗",
+  "██╔══██║██╔══╝  ██║     ██║██║   ██║╚════██║",
+  "██║  ██║███████╗███████╗██║╚██████╔╝███████║",
+  "╚═╝  ╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚══════╝",
+];
+const SUN = ["       ╲  │  ╱", "     ───  ●  ───", "       ╱  │  ╲", "        ἭΛΙΟΣ"];
 export const CHAT_COMMANDS = ["/status", "/model", "/tools", "/sessions", "/capabilities", "/autonomy", "/clear", "/help", "/exit"];
 
 export class TerminalUI {
@@ -23,15 +37,47 @@ export class TerminalUI {
     this.streaming = false;
   }
   line(text = "") { this.output.write(`${text}\n`); }
+  setupBanner() {
+    this.output.write("\x1bc");
+    this.line(); LARGE_WORDMARK.forEach((row) => this.line(paint(color.gold, `  ${row}`)));
+    this.line(`${paint(color.bronze, "  ═╣")} ${paint(color.ivory, "AWAKEN YOUR AGENT")} ${paint(color.bronze, "╠════════════════════")}`);
+    this.line(paint(color.dim, "  The sun remembers. The sun reveals. Your work stays yours.")); this.line();
+  }
+  step(current, total, name, description = "") {
+    this.line(`${paint(color.bronze, greekRule(8))} ${paint(color.gold, `${String(current).padStart(2, "0")}/${String(total).padStart(2, "0")}  ${name.toUpperCase()}`)} ${paint(color.bronze, greekRule(8))}`);
+    if (description) this.line(paint(color.dim, `  ${description}`));
+  }
+  permissionStatus(name, status, tone = "dim") {
+    const code = color[tone] || color.dim; const icon = tone === "green" ? "✓" : tone === "red" ? "×" : tone === "amber" ? "!" : "○";
+    this.line(`  ${paint(code, icon)} ${name.padEnd(20)} ${paint(code, status)}`);
+  }
   banner(meta) {
     this.output.write("\x1bc");
-    const width = Math.min(Math.max(this.output.columns || 80, 48), 96);
-    this.line(`${paint(color.cyan, "✦")}  ${paint(color.bold, "H E L I O S")}  ${paint(color.dim, "local business agent")}`);
-    this.line(paint(color.dim, "─".repeat(width)));
-    this.line(`${paint(color.dim, "model")} ${meta.model}   ${paint(color.dim, "session")} ${meta.session}   ${paint(color.dim, "mode")} ${meta.autonomy || "guarded"}`);
-    this.line(`${paint(color.dim, "memory")} ${meta.capabilities || 0} learned capabilities   ${paint(color.dim, "workspace")} ${compactPath(meta.workspace, width)}`);
-    this.line(paint(color.dim, "─".repeat(width)));
-    this.line(`${paint(color.dim, "Type a message")}  ${paint(color.cyan, "/help")} ${paint(color.dim, "commands")}  ${paint(color.cyan, "↑↓")} ${paint(color.dim, "history")}  ${paint(color.cyan, "Ctrl+C")} ${paint(color.dim, "exit")}`);
+    const width = Math.min(Math.max(this.output.columns || 80, 54), 110);
+    const wordmark = width >= 58 ? LARGE_WORDMARK : SMALL_WORDMARK;
+    wordmark.forEach((row) => this.line(paint(color.gold, row)));
+    this.line(`${paint(color.bronze, "╔" + "═".repeat(width - 2) + "╗")}`);
+    const leftWidth = Math.min(28, Math.floor(width * 0.32));
+    const detailWidth = width - leftWidth - 7;
+    const tools = (meta.tools || []).map(humanize);
+    const detail = (label, value) => `${paint(color.gold, label)}  ${truncate(value, Math.max(8, detailWidth - label.length - 2))}`;
+    const details = [
+      detail("MODEL", meta.model),
+      detail("TOOLS", tools.length ? tools.slice(0, 5).join(" · ") : "memory only"),
+      ...(tools.length > 5 ? [`       +${tools.length - 5} more`] : []),
+      detail("MEMORY", `${meta.memory || "local"} · ${meta.capabilities || 0} learned`),
+      detail("LINKS", (meta.channels || []).join(" · ") || "local only"),
+    ];
+    for (let row = 0; row < Math.max(SUN.length, details.length); row += 1) {
+      const left = (SUN[row] || "").padEnd(leftWidth);
+      this.line(`${paint(color.bronze, "║")} ${paint(color.gold, left)} ${paint(color.bronze, "│")} ${padVisible(details[row] || "", detailWidth)}${paint(color.bronze, "║")}`);
+    }
+    this.line(`${paint(color.bronze, "╟" + "─".repeat(width - 2) + "╢")}`);
+    const status = paint(color.dim, `session ${meta.session} · ${meta.autonomy || "guarded"} · ${compactPath(meta.workspace, width - 30)}`);
+    this.line(`${paint(color.bronze, "║")} ${padVisible(status, width - 4)} ${paint(color.bronze, "║")}`);
+    this.line(`${paint(color.bronze, "╚" + "═".repeat(width - 2) + "╝")}`);
+    this.line(`${paint(color.ivory, "  The day is yours.")} ${paint(color.dim, "Tell me what we are building.")}`);
+    this.line(`${paint(color.gold, "  /help")} ${paint(color.dim, "commands")}  ${paint(color.gold, "Tab")} ${paint(color.dim, "complete")}  ${paint(color.gold, "Ctrl+C")} ${paint(color.dim, "redirect")}`);
     this.line();
   }
   async prompt(label = "YOU") {
@@ -176,6 +222,15 @@ function formatDuration(milliseconds) { return milliseconds < 1000 ? `${millisec
 function compactPath(value, width) {
   const text = String(value || "not set"); const limit = Math.max(18, width - 30);
   return text.length > limit ? `…${text.slice(-(limit - 1))}` : text;
+}
+
+function greekRule(repeats) { return `┈${"┯┷".repeat(repeats)}┈`; }
+function padVisible(value, width) {
+  const visible = String(value).replace(/\x1b\[[0-9;]*m/g, "");
+  return `${value}${" ".repeat(Math.max(0, width - visible.length))}`;
+}
+function truncate(value, width) {
+  const text = String(value || ""); return text.length > width ? `${text.slice(0, Math.max(0, width - 1))}…` : text;
 }
 
 export function completeCommand(line) {
