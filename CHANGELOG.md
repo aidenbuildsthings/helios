@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Corrected the avatar from the source drawing's exact 15×16 painted matrix inside a 17×18
+  transparent canvas, removing invented eye, toga, body, and foot pixels.
+- Solid runs now use filled terminal cells instead of block glyphs, eliminating seams and speckles
+  inside the crown, face, eyes, and clothing.
+
 ## [0.9.4] - 2026-08-26
 
 ### Changed

@@ -86,6 +86,7 @@ test("conversation chrome keeps status compact and tool output private", () => {
   assert.match(rendered, /48;5;215m/);
   assert.match(rendered, /48;5;16m/);
   assert.match(rendered, /48;5;255m/);
+  assert.match(rendered, /48;5;16m /);
   assert.match(plain, /[▀▄]/);
   assert.doesNotMatch(rendered, /38;5;172m/);
   assert.match(plain, /✓ Read file/);

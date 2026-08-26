@@ -24,7 +24,6 @@ const LARGE_WORDMARK = [
   "╚═╝  ╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚══════╝",
 ];
 const HELIOS_AVATAR = [
-  "                 ",
   "        Y        ",
   "     Y YYY Y     ",
   "     YYYYYYY     ",
@@ -32,16 +31,17 @@ const HELIOS_AVATAR = [
   "   YYYSSSSSYYY   ",
   "    YSSSSSSSY    ",
   "    YSKSSSKSY    ",
-  "    YSKSSSKSY    ",
   "   YSSKSSSKSSY   ",
   "     SSSSSSS     ",
   "      SSSSWW     ",
-  "     SSSWWWWS    ",
-  "    SSSWWWWWSS   ",
-  "    SSWWWWWWS    ",
+  "     SSSWWWS     ",
+  "    SSSWWWWSS    ",
+  "    SSWWWWWSS    ",
+  "    SSWWWWWSS    ",
   "      WWWWW      ",
-  "      WW WW      ",
-  "      YY YY      ",
+  "      YYWYY      ",
+  "                 ",
+  "                 ",
 ];
 export const CHAT_COMMANDS = ["/status", "/model", "/tools", "/sessions", "/capabilities", "/autonomy", "/clear", "/help", "/exit"];
 
@@ -265,6 +265,7 @@ function renderAvatar() {
     rows.push([...upper].map((top, column) => {
       const bottom = lower[column];
       if (top === " " && bottom === " ") return " ";
+      if (top === bottom) return `\x1b[48;5;${palette[top]}m ${color.reset}`;
       if (top === " ") return `\x1b[38;5;${palette[bottom]}m▄${color.reset}`;
       if (bottom === " ") return `\x1b[38;5;${palette[top]}m▀${color.reset}`;
       return `\x1b[38;5;${palette[top]};48;5;${palette[bottom]}m▀${color.reset}`;
