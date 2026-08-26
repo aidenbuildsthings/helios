@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The clean four-color Helios avatar now follows the original drawing at 17×18 logical pixels,
+  packed into nine terminal rows so its pixels are smaller without changing the design.
+
 ## [0.9.3] - 2026-08-26
 
 ### Fixed

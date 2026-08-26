@@ -82,10 +82,11 @@ test("conversation chrome keeps status compact and tool output private", () => {
   assert.match(plain, /Quick commands/);
   assert.doesNotMatch(plain, /Recent activity/);
   assert.match(plain, /openai\/gpt-test · guarded/);
-  assert.match(rendered, /48;5;220m/);
+  assert.match(rendered, /38;5;220m/);
   assert.match(rendered, /48;5;215m/);
   assert.match(rendered, /48;5;16m/);
   assert.match(rendered, /48;5;255m/);
+  assert.match(plain, /[▀▄]/);
   assert.doesNotMatch(rendered, /38;5;172m/);
   assert.match(plain, /✓ Read file/);
   assert.doesNotMatch(plain, /private file contents/);
