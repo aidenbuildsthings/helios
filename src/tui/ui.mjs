@@ -2,6 +2,7 @@ import readline from "node:readline/promises";
 import { emitKeypressEvents } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { color, paint } from "./theme.mjs";
+import { renderHeliosAvatar } from "./avatar.mjs";
 
 export function prepareRawInput(input) {
   emitKeypressEvents(input);
@@ -22,23 +23,6 @@ const LARGE_WORDMARK = [
   "██╔══██║██╔══╝  ██║     ██║██║   ██║╚════██║",
   "██║  ██║███████╗███████╗██║╚██████╔╝███████║",
   "╚═╝  ╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚══════╝",
-];
-const HELIOS_AVATAR = [
-  "       Y       ",
-  "    Y YYY Y    ",
-  "    YYYYYYY    ",
-  "    YYYYYYY    ",
-  "  YYYSSSSSYYY  ",
-  "   YSSSSSSSY   ",
-  "   YSKSSSKSY   ",
-  "   YSKSSSKSY   ",
-  "  YSSKSSSKSSY  ",
-  "    SSSSSSS    ",
-  "     SSSSWW    ",
-  "    SSSWWWWS   ",
-  "   SSSWWWWWSS  ",
-  "   SSWWWWWWS   ",
-  "     WW WW     ",
 ];
 export const CHAT_COMMANDS = ["/status", "/model", "/tools", "/sessions", "/capabilities", "/autonomy", "/clear", "/help", "/exit"];
 
@@ -222,7 +206,7 @@ export class TerminalUI {
 function welcomePanel(meta, width) {
   const name = String(meta.name || "").trim();
   const greeting = name ? `Welcome back, ${name}!` : "Welcome back!";
-  const avatar = renderAvatar();
+  const avatar = renderHeliosAvatar(meta.avatarFrame);
   const model = truncate(meta.model || "model not selected", Math.max(12, width - 4));
   const workspace = compactPath(meta.workspace, width - 2);
   const rows = [
@@ -252,23 +236,6 @@ function tipsPanel(meta, width) {
     `  ${paint(color.dim, `session ${meta.session || "new"}`)}`,
   ];
   return lines;
-}
-
-function renderAvatar() {
-  const palette = { Y: 220, S: 215, K: 16, W: 255 };
-  const rows = [];
-  for (let index = 0; index < HELIOS_AVATAR.length; index += 2) {
-    const upper = HELIOS_AVATAR[index];
-    const lower = HELIOS_AVATAR[index + 1] || " ".repeat(upper.length);
-    rows.push([...upper].map((top, column) => {
-      const bottom = lower[column];
-      if (top === " " && bottom === " ") return " ";
-      if (top === " ") return `\x1b[38;5;${palette[bottom]}m▄${color.reset}`;
-      if (bottom === " ") return `\x1b[38;5;${palette[top]}m▀${color.reset}`;
-      return `\x1b[38;5;${palette[top]};48;5;${palette[bottom]}m▀${color.reset}`;
-    }).join(""));
-  }
-  return rows;
 }
 
 function center(value, width) {

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The Helios character is now a dedicated true-color sprite with a cleaner, symmetrical silhouette,
+  stable transparent bounds, and named idle/blink frames ready for future terminal animation.
+
 ## [0.9.1] - 2026-08-26
 
 ### Fixed
