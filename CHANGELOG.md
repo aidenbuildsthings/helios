@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Replaced the over-detailed avatar renderer with one small, direct terminal sprite using ordinary
+  square color cells for predictable rendering without compositing artifacts.
+
 ## [0.9.2] - 2026-08-26
 
 ### Changed

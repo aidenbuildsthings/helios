@@ -2,7 +2,6 @@ import readline from "node:readline/promises";
 import { emitKeypressEvents } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { color, paint } from "./theme.mjs";
-import { renderHeliosAvatar } from "./avatar.mjs";
 
 export function prepareRawInput(input) {
   emitKeypressEvents(input);
@@ -23,6 +22,18 @@ const LARGE_WORDMARK = [
   "██╔══██║██╔══╝  ██║     ██║██║   ██║╚════██║",
   "██║  ██║███████╗███████╗██║╚██████╔╝███████║",
   "╚═╝  ╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚══════╝",
+];
+const HELIOS_AVATAR = [
+  "    Y    ",
+  " Y YYY Y ",
+  " YYYYYYY ",
+  "YYSSSSSYY",
+  " YSKSKSY ",
+  " YSSSSSY ",
+  "  SSSWW  ",
+  " SSWWWS  ",
+  " SSWWWWW ",
+  "   W W   ",
 ];
 export const CHAT_COMMANDS = ["/status", "/model", "/tools", "/sessions", "/capabilities", "/autonomy", "/clear", "/help", "/exit"];
 
@@ -206,7 +217,7 @@ export class TerminalUI {
 function welcomePanel(meta, width) {
   const name = String(meta.name || "").trim();
   const greeting = name ? `Welcome back, ${name}!` : "Welcome back!";
-  const avatar = renderHeliosAvatar(meta.avatarFrame);
+  const avatar = HELIOS_AVATAR.map(renderAvatarRow);
   const model = truncate(meta.model || "model not selected", Math.max(12, width - 4));
   const workspace = compactPath(meta.workspace, width - 2);
   const rows = [
@@ -236,6 +247,11 @@ function tipsPanel(meta, width) {
     `  ${paint(color.dim, `session ${meta.session || "new"}`)}`,
   ];
   return lines;
+}
+
+function renderAvatarRow(row) {
+  const palette = { Y: "\x1b[48;5;220m", S: "\x1b[48;5;215m", K: "\x1b[48;5;16m", W: "\x1b[48;5;255m" };
+  return [...row].map((pixel) => pixel === " " ? "  " : `${palette[pixel]}  ${color.reset}`).join("");
 }
 
 function center(value, width) {
