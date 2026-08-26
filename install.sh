@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPOSITORY="aidenbuildsthings/helios"
-VERSION="${HELIOS_VERSION:-0.9.2}"
+VERSION="${HELIOS_VERSION:-0.9.3}"
 RELEASE_ROOT="https://github.com/$REPOSITORY/releases/download/v$VERSION"
 ARCHIVE_NAME="helios-$VERSION.tar.gz"
 ARCHIVE_URL="$RELEASE_ROOT/$ARCHIVE_NAME"
