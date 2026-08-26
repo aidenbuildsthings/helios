@@ -71,21 +71,22 @@ test("conversation chrome keeps status compact and tool output private", () => {
   const input = new PassThrough(); const output = new PassThrough(); let rendered = "";
   output.on("data", (chunk) => { rendered += chunk; });
   const ui = new TerminalUI({ input, output });
-  ui.banner({ model: "openai/gpt-test", version: "0.8.0", name: "Aiden", session: "abc123", capabilities: 2, autonomy: "guarded", workspace: "/a/very/long/workspace/path", recent: [{ title: "Ship the new TUI" }] });
+  ui.banner({ model: "openai/gpt-test", version: "0.9.0", name: "Aiden", session: "abc123", capabilities: 2, autonomy: "guarded", workspace: "/a/very/long/workspace/path" });
   ui.toolStart({ name: "read_file" });
   ui.toolEnd({ name: "read_file" }, "private file contents");
   ui.assistant("Ready to work.");
   const plain = stripAnsi(rendered);
-  assert.match(plain, /Helios v0\.8\.0/);
+  assert.match(plain, /Helios v0\.9\.0/);
   assert.match(plain, /Welcome back, Aiden!/);
   assert.match(plain, /Tips for getting started/);
-  assert.match(plain, /Ship the new TUI/);
+  assert.match(plain, /Quick commands/);
+  assert.doesNotMatch(plain, /Recent activity/);
   assert.match(plain, /openai\/gpt-test · guarded/);
   assert.match(plain, /████/);
   assert.doesNotMatch(rendered, /38;5;172m/);
   assert.match(plain, /✓ Read file/);
   assert.doesNotMatch(plain, /private file contents/);
-  assert.match(plain, /● Helios\n\n  Ready to work\./);
+  assert.match(plain, /● Ready to work\./);
   ui.close(); input.destroy(); output.destroy();
 });
 

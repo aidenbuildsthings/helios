@@ -4,6 +4,7 @@ import { paths } from "./paths.mjs";
 
 export const DEFAULT_CONFIG = Object.freeze({
   version: 2,
+  profile: { name: null },
   provider: null,
   model: null,
   workspace: null,
@@ -27,6 +28,7 @@ export async function readConfig(env = process.env) {
     return {
       ...DEFAULT_CONFIG,
       ...parsed,
+      profile: { ...DEFAULT_CONFIG.profile, ...parsed.profile },
       credentials: { ...DEFAULT_CONFIG.credentials, ...parsed.credentials },
       channels: { ...DEFAULT_CONFIG.channels, ...parsed.channels },
       memory: { ...DEFAULT_CONFIG.memory, ...parsed.memory },

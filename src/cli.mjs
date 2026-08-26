@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --disable-warning=ExperimentalWarning
 import { createApp } from "./app.mjs";
 import { readConfig, writeConfig } from "./config.mjs";
-import { onboard } from "./onboard.mjs";
+import { collectName, onboard } from "./onboard.mjs";
 import { Store } from "./store.mjs";
 import { TerminalUI } from "./tui/ui.mjs";
 import { runChannels, startChannels } from "./gateway.mjs";
@@ -14,7 +14,6 @@ import { startScheduler, validateCron } from "./scheduler.mjs";
 import { downloadSkill } from "./skills.mjs";
 import { readSecret, writeSecret } from "./secrets.mjs";
 import crypto from "node:crypto";
-import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { formatDoctor, runDoctor } from "./doctor.mjs";
 import { readRuntime, registerRuntime, restartHelios, startHelios, stopHelios, verifyRuntimeOwner } from "./runtime.mjs";
@@ -25,10 +24,14 @@ const ui = new TerminalUI();
 
 async function chat() {
   const requestedSession = command === "--session" ? args[0] : args[0] === "--session" ? args[1] : null;
-  const initial = await readConfig();
+  let initial = await readConfig();
   if (!initial.provider) {
     const result = await onboard(ui, initial);
     if (!result.start) return;
+  } else if (!initial.profile?.name) {
+    const name = await collectName(ui);
+    initial = { ...initial, profile: { name } };
+    await writeConfig(initial);
   }
   const browserBridge = await startBrowserIfEnabled(await readConfig());
   let app;
@@ -50,12 +53,11 @@ async function chat() {
     const info = await buildInfo(fileURLToPath(import.meta.url));
     const banner = async () => ui.banner({
       model: `${app.config.provider}/${app.config.model}`, session: app.sessionId.slice(0, 8), workspace: app.workspace,
-      version: info.version, name: friendlyName(os.userInfo().username),
+      version: info.version, name: app.config.profile?.name,
       capabilities: (await app.capabilityStore.list()).length, autonomy: app.config.autonomy.mode,
       memory: app.config.memory.backend,
       tools: app.agent.registry.definitions().map((tool) => tool.name),
       channels: Object.entries(app.config.channels || {}).filter(([, value]) => value.enabled).map(([id]) => id),
-      recent: app.store.sessions(4).filter((session) => session.id !== app.sessionId),
     });
     await banner();
     while (true) {
@@ -96,11 +98,6 @@ async function chat() {
       } finally { activeTurn = null; }
     }
   } finally { process.off("SIGTERM", onTerminate); process.off("SIGINT", onInterrupt); channels?.stop(); updates?.stop(); scheduler?.stop(); browserBridge?.stop(); app.store.close(); }
-}
-
-function friendlyName(username) {
-  const first = String(username || "").split(/[._-]/)[0];
-  return first ? `${first[0].toUpperCase()}${first.slice(1)}` : "";
 }
 
 async function service() {

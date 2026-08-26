@@ -24,16 +24,13 @@ const LARGE_WORDMARK = [
   "╚═╝  ╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚══════╝",
 ];
 const HELIOS_AVATAR = [
-  "     YY     ",
-  "  YYYYYYY   ",
-  "YYYYSSSYYYY ",
-  "  SSSSSSS   ",
-  "  SKSSSKS   ",
-  "  SSSSSSS   ",
-  "   SSSSS    ",
-  "  SSWWSS    ",
-  "  SWWWWSS   ",
-  "   WWWW     ",
+  "  Y Y Y  ",
+  " YYYYYYY ",
+  " YYSSSYY ",
+  "  SKSKS  ",
+  "  SSSSS  ",
+  "  SWWWS  ",
+  "  WWWWW  ",
 ];
 export const CHAT_COMMANDS = ["/status", "/model", "/tools", "/sessions", "/capabilities", "/autonomy", "/clear", "/help", "/exit"];
 
@@ -73,7 +70,7 @@ export class TerminalUI {
     this.line(`${paint(color.border, `╭─`)}${paint(color.gold, title)}${paint(color.border, `${"─".repeat(Math.max(0, width - title.length - 3))}╮`)}`);
 
     const left = welcomePanel(meta, leftWidth);
-    const right = width >= 88 ? activityPanel(meta, rightWidth) : [];
+    const right = width >= 88 ? tipsPanel(meta, rightWidth) : [];
     const rows = Math.max(left.length, right.length);
     for (let index = 0; index < rows; index += 1) {
       const divider = width >= 88 ? `${paint(color.border, "│")}${padVisible(right[index] || "", rightWidth)}` : "";
@@ -81,7 +78,7 @@ export class TerminalUI {
     }
     if (width < 88) {
       this.line(`${paint(color.border, "├" + "─".repeat(inner) + "┤")}`);
-      for (const row of activityPanel(meta, inner)) this.line(`${paint(color.border, "│")}${padVisible(row, inner)}${paint(color.border, "│")}`);
+      for (const row of tipsPanel(meta, inner)) this.line(`${paint(color.border, "│")}${padVisible(row, inner)}${paint(color.border, "│")}`);
     }
     this.line(`${paint(color.border, `╰${"─".repeat(inner)}╯`)}`);
     this.line(`${paint(color.gold, "  ✦")} ${paint(color.dim, "Helios is ready. Ask for work, or type /help for commands.")}`);
@@ -203,14 +200,14 @@ export class TerminalUI {
   }
   assistant(text) {
     this.stopActivity();
-    this.line(`${paint(color.cyan, "●")} ${paint(color.bold, "Helios")}`);
-    this.line();
-    for (const line of String(text).trim().split("\n")) this.line(`  ${line}`);
+    const lines = String(text).trim().split("\n");
+    this.line(`${paint(color.cyan, "●")} ${lines.shift() || ""}`);
+    for (const line of lines) this.line(`  ${line}`);
     this.line();
   }
   responseStart() {
     this.stopActivity(); this.streaming = true;
-    this.line(`${paint(color.cyan, "●")} ${paint(color.bold, "Helios")}`); this.line(); this.output.write("  ");
+    this.output.write(`${paint(color.cyan, "●")} `);
   }
   responseDelta(delta) { this.output.write(String(delta).replace(/\n/g, "\n  ")); }
   responseEnd() { if (!this.streaming) return; this.streaming = false; this.output.write("\n\n"); }
@@ -237,19 +234,20 @@ function welcomePanel(meta, width) {
   return rows;
 }
 
-function activityPanel(meta, width) {
-  const recent = (meta.recent || []).slice(0, 3);
+function tipsPanel(meta, width) {
   const lines = [
     "",
     `  ${paint(color.gold, "Tips for getting started")}`,
     `  ${truncate("Ask Helios to inspect, plan, or automate work here", Math.max(8, width - 4))}`,
     "",
     `  ${paint(color.border, "─".repeat(Math.max(1, width - 4)))}`,
-    `  ${paint(color.gold, "Recent activity")}`,
+    `  ${paint(color.gold, "Quick commands")}`,
+    `  ${paint(color.cyan, "/model")} ${paint(color.dim, "change the model")}`,
+    `  ${paint(color.cyan, "/tools")} ${paint(color.dim, "see available tools")}`,
+    `  ${paint(color.cyan, "/help")} ${paint(color.dim, "show every command")}`,
+    "",
+    `  ${paint(color.dim, `session ${meta.session || "new"}`)}`,
   ];
-  if (!recent.length) lines.push(`  ${paint(color.dim, "No recent activity")}`);
-  else for (const session of recent) lines.push(`  ${paint(color.dim, "○")} ${truncate(session.title || "Conversation", Math.max(8, width - 7))}`);
-  lines.push("", `  ${paint(color.dim, `/help commands · session ${meta.session || "new"}`)}`);
   return lines;
 }
 

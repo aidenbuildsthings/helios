@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- First launch now asks what Helios should call the user and keeps that chosen name in the private
+  local configuration instead of guessing from the operating-system username.
+- The welcome card uses a smaller, cleaner Helios avatar and replaces recent conversations with
+  useful command hints.
+- Chat replies now begin directly beside the Helios activity mark for a denser, easier-to-scan
+  conversation flow.
+
 ## [0.8.0] - 2026-08-26
 
 ### Changed
