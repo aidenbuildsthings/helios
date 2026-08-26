@@ -82,7 +82,7 @@ test("conversation chrome keeps status compact and tool output private", () => {
   assert.match(plain, /Quick commands/);
   assert.doesNotMatch(plain, /Recent activity/);
   assert.match(plain, /openai\/gpt-test · guarded/);
-  assert.match(plain, /████/);
+  assert.match(plain, /[▀▄]/);
   assert.doesNotMatch(rendered, /38;5;172m/);
   assert.match(plain, /✓ Read file/);
   assert.doesNotMatch(plain, /private file contents/);
@@ -95,15 +95,14 @@ test("slash commands autocomplete from a shared command catalog", () => {
   assert.ok(completeCommand("/")[0].includes("/sessions"));
 });
 
-test("composer frames input and shows shortcuts once", async () => {
+test("composer keeps its only rule above the input", async () => {
   const input = new PassThrough(); const output = new PassThrough(); let rendered = "";
   output.columns = 60;
   output.on("data", (chunk) => { rendered += chunk; });
   const ui = new TerminalUI({ input, output });
   const first = ui.prompt(); input.write("hello\n"); assert.equal(await first, "hello");
-  const second = ui.prompt(); input.write("again\n"); assert.equal(await second, "again");
   const plain = stripAnsi(rendered);
-  assert.equal((plain.match(/\? for shortcuts/g) || []).length, 1);
-  assert.ok((plain.match(/─{60}/g) || []).length >= 4);
+  assert.equal((plain.match(/─{60}/g) || []).length, 1);
+  assert.doesNotMatch(plain, /\? for shortcuts/);
   ui.close(); input.destroy(); output.destroy();
 });

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Name collection now happens only once inside onboarding; normal launches never introduce a new
+  setup question.
+- The Helios avatar now follows the supplied pixel grid cell-for-cell using transparent terminal
+  space around its yellow hair, warm face, black eyes, and white toga.
+- The composer now keeps one input rule at the bottom of the transcript and does not insert a rule
+  between the user's submitted message and Helios's response.
+
 ## [0.9.0] - 2026-08-26
 
 ### Changed

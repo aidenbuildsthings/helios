@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --disable-warning=ExperimentalWarning
 import { createApp } from "./app.mjs";
 import { readConfig, writeConfig } from "./config.mjs";
-import { collectName, onboard } from "./onboard.mjs";
+import { onboard } from "./onboard.mjs";
 import { Store } from "./store.mjs";
 import { TerminalUI } from "./tui/ui.mjs";
 import { runChannels, startChannels } from "./gateway.mjs";
@@ -24,14 +24,10 @@ const ui = new TerminalUI();
 
 async function chat() {
   const requestedSession = command === "--session" ? args[0] : args[0] === "--session" ? args[1] : null;
-  let initial = await readConfig();
+  const initial = await readConfig();
   if (!initial.provider) {
     const result = await onboard(ui, initial);
     if (!result.start) return;
-  } else if (!initial.profile?.name) {
-    const name = await collectName(ui);
-    initial = { ...initial, profile: { name } };
-    await writeConfig(initial);
   }
   const browserBridge = await startBrowserIfEnabled(await readConfig());
   let app;
