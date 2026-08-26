@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The conversation TUI now uses a compact Claude Code-inspired welcome panel, a transparent
+  terminal-native Helios avatar, recent activity, focused help text, and a framed composer.
+- Cool blue borders replace the previous orange dashboard framing while Helios keeps its solar
+  gold identity.
+
 ## [0.7.0] - 2026-08-17
 
 ### Changed

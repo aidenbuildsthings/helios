@@ -71,13 +71,18 @@ test("conversation chrome keeps status compact and tool output private", () => {
   const input = new PassThrough(); const output = new PassThrough(); let rendered = "";
   output.on("data", (chunk) => { rendered += chunk; });
   const ui = new TerminalUI({ input, output });
-  ui.banner({ model: "openai/gpt-test", session: "abc123", capabilities: 2, autonomy: "guarded", workspace: "/a/very/long/workspace/path" });
+  ui.banner({ model: "openai/gpt-test", version: "0.8.0", name: "Aiden", session: "abc123", capabilities: 2, autonomy: "guarded", workspace: "/a/very/long/workspace/path", recent: [{ title: "Ship the new TUI" }] });
   ui.toolStart({ name: "read_file" });
   ui.toolEnd({ name: "read_file" }, "private file contents");
   ui.assistant("Ready to work.");
   const plain = stripAnsi(rendered);
-  assert.match(plain, /██╗  ██╗███████╗/);
-  assert.match(plain, /MODEL  openai\/gpt-test/);
+  assert.match(plain, /Helios v0\.8\.0/);
+  assert.match(plain, /Welcome back, Aiden!/);
+  assert.match(plain, /Tips for getting started/);
+  assert.match(plain, /Ship the new TUI/);
+  assert.match(plain, /openai\/gpt-test · guarded/);
+  assert.match(plain, /████/);
+  assert.doesNotMatch(rendered, /38;5;172m/);
   assert.match(plain, /✓ Read file/);
   assert.doesNotMatch(plain, /private file contents/);
   assert.match(plain, /● Helios\n\n  Ready to work\./);
@@ -87,4 +92,17 @@ test("conversation chrome keeps status compact and tool output private", () => {
 test("slash commands autocomplete from a shared command catalog", () => {
   assert.deepEqual(completeCommand("/sta")[0], ["/status"]);
   assert.ok(completeCommand("/")[0].includes("/sessions"));
+});
+
+test("composer frames input and shows shortcuts once", async () => {
+  const input = new PassThrough(); const output = new PassThrough(); let rendered = "";
+  output.columns = 60;
+  output.on("data", (chunk) => { rendered += chunk; });
+  const ui = new TerminalUI({ input, output });
+  const first = ui.prompt(); input.write("hello\n"); assert.equal(await first, "hello");
+  const second = ui.prompt(); input.write("again\n"); assert.equal(await second, "again");
+  const plain = stripAnsi(rendered);
+  assert.equal((plain.match(/\? for shortcuts/g) || []).length, 1);
+  assert.ok((plain.match(/─{60}/g) || []).length >= 4);
+  ui.close(); input.destroy(); output.destroy();
 });

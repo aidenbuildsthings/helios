@@ -14,6 +14,7 @@ import { startScheduler, validateCron } from "./scheduler.mjs";
 import { downloadSkill } from "./skills.mjs";
 import { readSecret, writeSecret } from "./secrets.mjs";
 import crypto from "node:crypto";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { formatDoctor, runDoctor } from "./doctor.mjs";
 import { readRuntime, registerRuntime, restartHelios, startHelios, stopHelios, verifyRuntimeOwner } from "./runtime.mjs";
@@ -46,12 +47,15 @@ async function chat() {
       updates = startUpdateChecks({ config: app.config, ui });
       scheduler = await startScheduler({ config: app.config, ui });
     }
+    const info = await buildInfo(fileURLToPath(import.meta.url));
     const banner = async () => ui.banner({
       model: `${app.config.provider}/${app.config.model}`, session: app.sessionId.slice(0, 8), workspace: app.workspace,
+      version: info.version, name: friendlyName(os.userInfo().username),
       capabilities: (await app.capabilityStore.list()).length, autonomy: app.config.autonomy.mode,
       memory: app.config.memory.backend,
       tools: app.agent.registry.definitions().map((tool) => tool.name),
       channels: Object.entries(app.config.channels || {}).filter(([, value]) => value.enabled).map(([id]) => id),
+      recent: app.store.sessions(4).filter((session) => session.id !== app.sessionId),
     });
     await banner();
     while (true) {
@@ -92,6 +96,11 @@ async function chat() {
       } finally { activeTurn = null; }
     }
   } finally { process.off("SIGTERM", onTerminate); process.off("SIGINT", onInterrupt); channels?.stop(); updates?.stop(); scheduler?.stop(); browserBridge?.stop(); app.store.close(); }
+}
+
+function friendlyName(username) {
+  const first = String(username || "").split(/[._-]/)[0];
+  return first ? `${first[0].toUpperCase()}${first.slice(1)}` : "";
 }
 
 async function service() {
