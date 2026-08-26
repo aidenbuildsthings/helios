@@ -1,6 +1,6 @@
 {
   "name": "helios-business-agent",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "A focused local business agent",
   "type": "module",
   "bin": {
