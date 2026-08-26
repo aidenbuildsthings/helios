@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Avatar colors now use the exact RGB values sampled from the original drawing instead of nearby
+  256-color terminal approximations; geometry remains unchanged.
+
 ## [0.9.5] - 2026-08-26
 
 ### Fixed

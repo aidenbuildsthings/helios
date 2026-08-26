@@ -258,17 +258,19 @@ function tipsPanel(meta, width) {
 }
 
 function renderAvatar() {
-  const palette = { Y: 220, S: 215, K: 16, W: 255 };
+  const palette = { Y: [251, 235, 78], S: [243, 186, 97], K: [0, 0, 0], W: [255, 255, 255] };
+  const foreground = (pixel) => `\x1b[38;2;${palette[pixel].join(";")}m`;
+  const background = (pixel) => `\x1b[48;2;${palette[pixel].join(";")}m`;
   const rows = [];
   for (let index = 0; index < HELIOS_AVATAR.length; index += 2) {
     const upper = HELIOS_AVATAR[index]; const lower = HELIOS_AVATAR[index + 1];
     rows.push([...upper].map((top, column) => {
       const bottom = lower[column];
       if (top === " " && bottom === " ") return " ";
-      if (top === bottom) return `\x1b[48;5;${palette[top]}m ${color.reset}`;
-      if (top === " ") return `\x1b[38;5;${palette[bottom]}m▄${color.reset}`;
-      if (bottom === " ") return `\x1b[38;5;${palette[top]}m▀${color.reset}`;
-      return `\x1b[38;5;${palette[top]};48;5;${palette[bottom]}m▀${color.reset}`;
+      if (top === bottom) return `${background(top)} ${color.reset}`;
+      if (top === " ") return `${foreground(bottom)}▄${color.reset}`;
+      if (bottom === " ") return `${foreground(top)}▀${color.reset}`;
+      return `${foreground(top)}${background(bottom)}▀${color.reset}`;
     }).join(""));
   }
   return rows;
